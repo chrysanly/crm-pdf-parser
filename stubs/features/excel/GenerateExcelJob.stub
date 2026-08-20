@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use App\Services\Excel\ExcelService;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+/**
+ * Builds a spreadsheet off the request cycle and stores it on a disk.
+ */
+final class GenerateExcelJob implements ShouldQueue
+{
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
+
+    /**
+     * @param  array<int, array<int, mixed>>  $rows
+     * @param  array<int, string>  $headings
+     */
+    public function __construct(
+        public readonly array $rows,
+        public readonly array $headings,
+        public readonly string $path,
+        public readonly ?string $disk = null,
+    ) {}
+
+    public function handle(ExcelService $excel): void
+    {
+        $excel->store($this->rows, $this->headings, $this->path, $this->disk);
+    }
+}

@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use App\Services\Pdf\PdfService;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+/**
+ * Renders a Blade view to PDF off the request cycle and stores it on a disk.
+ */
+final class GeneratePdfJob implements ShouldQueue
+{
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function __construct(
+        public readonly string $view,
+        public readonly array $data,
+        public readonly string $path,
+        public readonly ?string $disk = null,
+    ) {}
+
+    public function handle(PdfService $pdf): void
+    {
+        $pdf->store($this->view, $this->data, $this->path, $this->disk);
+    }
+}

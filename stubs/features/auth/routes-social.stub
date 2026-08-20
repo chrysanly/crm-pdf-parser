@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Http\Controllers\Auth\SocialiteController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Social Authentication Routes
+|--------------------------------------------------------------------------
+|
+| Wired by `php artisan auth:setup` (social modes). Required from
+| routes/web.php. The {provider} is validated against the enabled list in
+| config('features.auth.social') by the controller.
+|
+*/
+
+Route::middleware('guest')->group(function (): void {
+    Route::get('auth/{provider}/redirect', [SocialiteController::class, 'redirect'])
+        ->name('auth.social.redirect');
+
+    Route::get('auth/{provider}/callback', [SocialiteController::class, 'callback'])
+        ->name('auth.social.callback');
+});

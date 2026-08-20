@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Excel\Exports;
+
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+
+/**
+ * Generic export: a plain array of rows plus an optional heading row.
+ * Reusable for any "dump these rows to a spreadsheet" case.
+ */
+final class ArrayExport implements FromArray, WithHeadings
+{
+    /**
+     * @param  iterable<int, array<int, mixed>>  $rows
+     * @param  array<int, string>  $headings
+     */
+    public function __construct(
+        private readonly iterable $rows,
+        private readonly array $headings = [],
+    ) {}
+
+    /**
+     * @return array<int, array<int, mixed>>
+     */
+    public function array(): array
+    {
+        return is_array($this->rows) ? $this->rows : iterator_to_array($this->rows);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function headings(): array
+    {
+        return $this->headings;
+    }
+}

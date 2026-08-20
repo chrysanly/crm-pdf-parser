@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Excel;
+
+use App\Services\Excel\Exports\ArrayExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+
+/**
+ * Thin, reusable wrapper around maatwebsite/excel for the common "rows + headings"
+ * case. Returns a download response or stores the file on a disk. Queue large
+ * exports with App\Jobs\GenerateExcelJob.
+ */
+final class ExcelService
+{
+    /**
+     * Stream the rows as a spreadsheet download.
+     *
+     * @param  iterable<int, array<int, mixed>>  $rows
+     * @param  array<int, string>  $headings
+     */
+    public function download(iterable $rows, array $headings, string $filename): BinaryFileResponse
+    {
+        return Excel::download(new ArrayExport($rows, $headings), $filename);
+    }
+
+    /**
+     * Store the rows as a spreadsheet on the given disk, returning its path.
+     *
+     * @param  iterable<int, array<int, mixed>>  $rows
+     * @param  array<int, string>  $headings
+     */
+    public function store(iterable $rows, array $headings, string $path, ?string $disk = null): string
+    {
+        Excel::store(new ArrayExport($rows, $headings), $path, $disk);
+
+        return $path;
+    }
+}

@@ -1,0 +1,103 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use Laravel\Socialite\Contracts\User as SocialiteUser;
+use Laravel\Socialite\Facades\Socialite;
+use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
+
+/**
+ * OAuth sign-in via Laravel Socialite.
+ *
+ * Enforces two boilerplate policies from config('features.auth'):
+ *   - allowed_domains: when non-empty, only e-mails on those domains may sign in.
+ *   - registration:    when false, only existing users may sign in (no auto-create).
+ */
+final class SocialiteController extends Controller
+{
+    /**
+     * Redirect the user to the OAuth provider.
+     */
+    public function redirect(string $provider): SymfonyRedirectResponse
+    {
+        $this->ensureProviderIsEnabled($provider);
+
+        return Socialite::driver($provider)->redirect();
+    }
+
+    /**
+     * Handle the OAuth callback: match or (optionally) create the user, then log in.
+     */
+    public function callback(string $provider): RedirectResponse
+    {
+        $this->ensureProviderIsEnabled($provider);
+
+        $oauthUser = Socialite::driver($provider)->user();
+
+        $email = (string) $oauthUser->getEmail();
+
+        if ($email === '' || ! $this->emailDomainAllowed($email)) {
+            return redirect()->route('login')->withErrors([
+                'email' => 'This account is not permitted to sign in.',
+            ]);
+        }
+
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user === null) {
+            if (! $this->registrationEnabled()) {
+                return redirect()->route('login')->withErrors([
+                    'email' => 'Registration is disabled. Please contact an administrator.',
+                ]);
+            }
+
+            $user = $this->createUser($oauthUser, $email);
+        }
+
+        Auth::login($user, remember: true);
+
+        return redirect()->intended(route('dashboard'));
+    }
+
+    private function createUser(SocialiteUser $oauthUser, string $email): User
+    {
+        return User::query()->create([
+            'name' => (string) ($oauthUser->getName() ?? Str::before($email, '@')),
+            'email' => $email,
+            'email_verified_at' => now(),
+            'password' => bcrypt(Str::random(40)),
+        ]);
+    }
+
+    private function ensureProviderIsEnabled(string $provider): void
+    {
+        $enabled = (array) config('features.auth.social', []);
+
+        abort_unless(in_array($provider, $enabled, true), 404);
+    }
+
+    private function emailDomainAllowed(string $email): bool
+    {
+        $allowed = array_filter((array) config('features.auth.allowed_domains', []));
+
+        if ($allowed === []) {
+            return true;
+        }
+
+        $domain = Str::lower(Str::after($email, '@'));
+
+        return in_array($domain, array_map('strtolower', $allowed), true);
+    }
+
+    private function registrationEnabled(): bool
+    {
+        return (bool) config('features.auth.registration', true);
+    }
+}

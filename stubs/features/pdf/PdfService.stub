@@ -1,0 +1,58 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Pdf;
+
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Thin, reusable wrapper around barryvdh/laravel-dompdf.
+ *
+ * Renders a Blade view to PDF and returns it inline, as a download, or persists
+ * it to a storage disk. Queue heavy generation with App\Jobs\GeneratePdfJob.
+ */
+final class PdfService
+{
+    /**
+     * Stream the PDF inline in the browser.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function stream(string $view, array $data, string $filename): Response
+    {
+        return $this->render($view, $data)->stream($filename);
+    }
+
+    /**
+     * Return the PDF as a file download.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function download(string $view, array $data, string $filename): Response
+    {
+        return $this->render($view, $data)->download($filename);
+    }
+
+    /**
+     * Render and store the PDF on the given disk, returning its path.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function store(string $view, array $data, string $path, ?string $disk = null): string
+    {
+        Storage::disk($disk)->put($path, $this->render($view, $data)->output());
+
+        return $path;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function render(string $view, array $data): \Barryvdh\DomPDF\PDF
+    {
+        return Pdf::loadView($view, $data);
+    }
+}
