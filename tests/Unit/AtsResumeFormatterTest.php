@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\DTOs\Parsing\ParsedResume;
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use App\Models\Company;
 use App\Services\Ats\AtsResumeFormatter;
@@ -19,6 +21,8 @@ final class AtsResumeFormatterTest extends TestCase
             'resume_template' => ResumeTemplate::Modern,
             'section_order' => null,
             'brand_color' => '#000000',
+            'logo_placement' => LogoPlacement::Right,
+            'logo_size' => LogoSize::Medium,
         ]));
 
         $this->assertSame(
@@ -33,6 +37,8 @@ final class AtsResumeFormatterTest extends TestCase
             'resume_template' => ResumeTemplate::Classic,
             'section_order' => ['experience', 'summary', 'skills'],
             'brand_color' => '#000000',
+            'logo_placement' => LogoPlacement::Right,
+            'logo_size' => LogoSize::Medium,
         ]));
 
         $this->assertSame(
@@ -47,6 +53,8 @@ final class AtsResumeFormatterTest extends TestCase
             'resume_template' => ResumeTemplate::Classic,
             'section_order' => ['summary', 'salary_expectations', 'skills'],
             'brand_color' => '#000000',
+            'logo_placement' => LogoPlacement::Right,
+            'logo_size' => LogoSize::Medium,
         ]));
 
         $this->assertSame(['summary', 'skills'], array_column($document['sections'], 'key'));
@@ -119,6 +127,123 @@ final class AtsResumeFormatterTest extends TestCase
         $this->assertNotContains('languages', $keys);
     }
 
+    public function test_the_professional_template_centres_the_header_and_leads_with_details(): void
+    {
+        $document = (new AtsResumeFormatter)->format(
+            ParsedResume::fromArray($this->detailedPayload()),
+            $this->company(ResumeTemplate::Professional),
+        );
+
+        $this->assertTrue($document['header']['centred']);
+        $this->assertSame('Senior Full-Stack Developer', $document['header']['headline']);
+        $this->assertSame('details', $document['sections'][0]['key']);
+    }
+
+    public function test_other_templates_keep_a_left_aligned_header(): void
+    {
+        $document = $this->format($this->company(ResumeTemplate::Classic));
+
+        $this->assertFalse($document['header']['centred']);
+    }
+
+    public function test_personal_details_render_as_labelled_rows(): void
+    {
+        $document = (new AtsResumeFormatter)->format(
+            ParsedResume::fromArray($this->detailedPayload()),
+            $this->company(ResumeTemplate::Professional),
+        );
+
+        $details = $this->section($document, 'details');
+
+        $this->assertSame('details', $details['type']);
+        $this->assertSame(
+            [['label' => 'Date of Birth', 'value' => 'June 24, 1997']],
+            $details['rows'],
+        );
+    }
+
+    public function test_labelled_skills_render_as_groups_and_keep_a_flat_list(): void
+    {
+        $document = (new AtsResumeFormatter)->format(
+            ParsedResume::fromArray($this->detailedPayload()),
+            $this->company(ResumeTemplate::Professional),
+        );
+
+        $skills = $this->section($document, 'skills');
+
+        $this->assertSame('skill_groups', $skills['type']);
+        $this->assertSame('Databases', $skills['groups'][0]['label']);
+        $this->assertSame(['MySQL', 'PostgreSQL'], $skills['groups'][0]['items']);
+        $this->assertSame(['MySQL', 'PostgreSQL'], $skills['items']);
+    }
+
+    public function test_unlabelled_skills_still_render_as_a_tag_cloud(): void
+    {
+        $skills = $this->section($this->format($this->company()), 'skills');
+
+        $this->assertSame('tags', $skills['type']);
+    }
+
+    public function test_the_logo_carries_the_company_placement_and_size(): void
+    {
+        $company = $this->company();
+        $company->logo_path = 'company-logos/acme.png';
+        $company->logo_placement = LogoPlacement::Centre;
+        $company->logo_size = LogoSize::Large;
+
+        $document = $this->format($company);
+
+        $this->assertSame(
+            ['placement' => 'centre', 'size' => 'large', 'pixels' => 72],
+            $document['header']['logo'],
+        );
+    }
+
+    public function test_a_hidden_or_absent_logo_yields_no_letterhead(): void
+    {
+        $hidden = $this->company();
+        $hidden->logo_path = 'company-logos/acme.png';
+        $hidden->logo_placement = LogoPlacement::Hidden;
+
+        $this->assertNull($this->format($hidden)['header']['logo']);
+
+        // No uploaded logo at all — placement is irrelevant.
+        $none = $this->company();
+        $none->logo_path = null;
+        $none->logo_placement = LogoPlacement::Left;
+
+        $this->assertNull($this->format($none)['header']['logo']);
+    }
+
+    /**
+     * A resume whose parser sent only a flat skills list (no groups) still renders.
+     */
+    public function test_a_flat_skill_list_is_upgraded_to_one_unlabelled_group(): void
+    {
+        $payload = FakeResumeParser::payload();
+        unset($payload['skill_groups']);
+
+        $parsed = ParsedResume::fromArray($payload);
+
+        $this->assertCount(1, $parsed->skillGroups);
+        $this->assertNull($parsed->skillGroups[0]->label);
+        $this->assertSame($parsed->skills, $parsed->skillGroups[0]->items);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function detailedPayload(): array
+    {
+        return [
+            ...FakeResumeParser::payload(),
+            'headline' => 'Senior Full-Stack Developer',
+            'details' => [['label' => 'Date of Birth', 'value' => 'June 24, 1997']],
+            'skill_groups' => [['label' => 'Databases', 'items' => ['MySQL', 'PostgreSQL']]],
+            'skills' => [],
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -130,13 +255,15 @@ final class AtsResumeFormatterTest extends TestCase
         );
     }
 
-    private function company(): Company
+    private function company(ResumeTemplate $template = ResumeTemplate::Classic): Company
     {
         return new Company([
             'name' => 'Gulf Freight Partners',
-            'resume_template' => ResumeTemplate::Classic,
+            'resume_template' => $template,
             'section_order' => null,
             'brand_color' => '#0F766E',
+            'logo_placement' => LogoPlacement::Right,
+            'logo_size' => LogoSize::Medium,
         ]);
     }
 

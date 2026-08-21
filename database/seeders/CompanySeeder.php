@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use App\Models\Company;
 use App\Models\Resume;
@@ -30,8 +32,10 @@ final class CompanySeeder extends Seeder
                 'contact_phone' => '+97143214567',
                 'website' => 'https://gulffreight.example.ae',
                 'brand_color' => '#0F766E',
-                'resume_template' => ResumeTemplate::Classic,
+                'resume_template' => ResumeTemplate::Professional,
                 'section_order' => null,
+                'logo_placement' => LogoPlacement::Right,
+                'logo_size' => LogoSize::Medium,
                 'formatting_notes' => 'Reverse-chronological only. Dates as "Mon YYYY". '
                     .'Keep every role to a maximum of four achievement bullets.',
             ],

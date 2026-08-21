@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ats;
 
+use App\DTOs\Parsing\DetailItem;
 use App\DTOs\Parsing\EducationEntry;
 use App\DTOs\Parsing\ExperienceEntry;
 use App\DTOs\Parsing\ParsedResume;
+use App\DTOs\Parsing\SkillGroup;
+use App\Enums\LogoPlacement;
 use App\Models\Company;
 
 /**
@@ -22,6 +25,7 @@ final readonly class AtsResumeFormatter
      * Section keys this formatter knows how to emit.
      */
     private const array SUPPORTED_SECTIONS = [
+        'details',
         'summary',
         'experience',
         'education',
@@ -52,7 +56,7 @@ final readonly class AtsResumeFormatter
         }
 
         return [
-            'header' => $this->header($resume),
+            'header' => $this->header($resume, $company),
             'sections' => $sections,
             'score' => $this->score($resume),
             'warnings' => $resume->warnings,
@@ -74,12 +78,13 @@ final readonly class AtsResumeFormatter
     /**
      * @return array<string, mixed>
      */
-    private function header(ParsedResume $resume): array
+    private function header(ParsedResume $resume, Company $company): array
     {
         $contact = $resume->contact;
 
         return [
-            'name' => $contact->fullName ?? __('Name not detected'),
+            'name' => $contact->fullName ?? $this->label('Name not detected'),
+            'headline' => $resume->headline,
             'contact_lines' => array_values(array_filter([
                 $contact->email,
                 $contact->phone,
@@ -87,6 +92,27 @@ final readonly class AtsResumeFormatter
                 $contact->linkedin,
                 $contact->website,
             ])),
+            'centred' => $company->resume_template->hasCentredHeader(),
+            'logo' => $this->logo($company),
+        ];
+    }
+
+    /**
+     * Letterhead settings, resolved server-side so the preview and the printed
+     * page agree (DESIGN §1.4).
+     *
+     * @return array{placement: string, size: string, pixels: int}|null
+     */
+    private function logo(Company $company): ?array
+    {
+        if ($company->logo_path === null || $company->logo_placement === LogoPlacement::Hidden) {
+            return null;
+        }
+
+        return [
+            'placement' => $company->logo_placement->value,
+            'size' => $company->logo_size->value,
+            'pixels' => $company->logo_size->pixels(),
         ];
     }
 
@@ -96,44 +122,76 @@ final readonly class AtsResumeFormatter
     private function section(string $key, ParsedResume $resume): ?array
     {
         return match ($key) {
+            'details' => $resume->details === [] ? null : [
+                'key' => 'details',
+                'label' => $this->label('Personal Details'),
+                'type' => 'details',
+                'rows' => array_map(
+                    static fn (DetailItem $detail): array => [
+                        'label' => $detail->label,
+                        'value' => $detail->value,
+                    ],
+                    $resume->details,
+                ),
+            ],
             'summary' => $resume->summary === null ? null : [
                 'key' => 'summary',
-                'label' => __('Professional Summary'),
+                'label' => $this->label('Professional Summary'),
                 'type' => 'text',
                 'text' => $this->normalise($resume->summary),
             ],
             'experience' => $resume->experience === [] ? null : [
                 'key' => 'experience',
-                'label' => __('Professional Experience'),
+                'label' => $this->label('Professional Experience'),
                 'type' => 'timeline',
                 'entries' => array_map($this->experienceEntry(...), $resume->experience),
             ],
             'education' => $resume->education === [] ? null : [
                 'key' => 'education',
-                'label' => __('Education'),
+                'label' => $this->label('Education'),
                 'type' => 'timeline',
                 'entries' => array_map($this->educationEntry(...), $resume->education),
             ],
-            'skills' => $resume->skills === [] ? null : [
+            // Grouped skills keep their printed categories; an unlabelled single
+            // group renders as a plain tag cloud.
+            'skills' => $resume->skillGroups === [] ? null : [
                 'key' => 'skills',
-                'label' => __('Core Skills'),
-                'type' => 'tags',
+                'label' => $this->label('Technical Skills'),
+                'type' => $this->skillsAreGrouped($resume) ? 'skill_groups' : 'tags',
                 'items' => $resume->skills,
+                'groups' => array_map(
+                    static fn (SkillGroup $group): array => [
+                        'label' => $group->label,
+                        'items' => $group->items,
+                    ],
+                    $resume->skillGroups,
+                ),
             ],
             'certifications' => $resume->certifications === [] ? null : [
                 'key' => 'certifications',
-                'label' => __('Certifications'),
+                'label' => $this->label('Certifications'),
                 'type' => 'list',
                 'items' => $resume->certifications,
             ],
             'languages' => $resume->languages === [] ? null : [
                 'key' => 'languages',
-                'label' => __('Languages'),
+                'label' => $this->label('Languages'),
                 'type' => 'list',
                 'items' => $resume->languages,
             ],
             default => null,
         };
+    }
+
+    private function skillsAreGrouped(ParsedResume $resume): bool
+    {
+        foreach ($resume->skillGroups as $group) {
+            if ($group->label !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

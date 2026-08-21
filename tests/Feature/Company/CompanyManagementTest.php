@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Company;
 
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use App\Models\Company;
 use App\Models\User;
@@ -202,6 +204,8 @@ final class CompanyManagementTest extends TestCase
             'website' => 'https://nakheeleng.example.ae',
             'brand_color' => '#1d4ed8',
             'resume_template' => ResumeTemplate::Modern->value,
+            'logo_placement' => LogoPlacement::Right->value,
+            'logo_size' => LogoSize::Medium->value,
             'formatting_notes' => 'Certifications before education.',
             'is_active' => true,
         ];

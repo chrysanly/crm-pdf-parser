@@ -13,6 +13,7 @@ type Props = {
 };
 
 const LABELS: Record<SectionKey, string> = {
+    details: 'Personal details',
     summary: 'Summary',
     experience: 'Experience',
     education: 'Education',
@@ -40,6 +41,15 @@ const TEMPLATE_DEFAULTS: Record<string, SectionKey[]> = {
         'languages',
     ],
     compact: ['summary', 'skills', 'experience', 'education'],
+    professional: [
+        'details',
+        'summary',
+        'skills',
+        'experience',
+        'certifications',
+        'education',
+        'languages',
+    ],
 };
 
 export function SectionOrderPicker({
@@ -57,8 +67,8 @@ export function SectionOrderPicker({
         const target = index + direction;
 
         if (target < 0 || target >= next.length) {
-return;
-}
+            return;
+        }
 
         [next[index], next[target]] = [next[target], next[index]];
         onChange(next);

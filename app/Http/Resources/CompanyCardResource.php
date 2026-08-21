@@ -31,6 +31,9 @@ final class CompanyCardResource extends JsonResource
             'brand_color' => $this->brand_color,
             'resume_template' => $this->resume_template->value,
             'resume_template_label' => $this->resume_template->label(),
+            'logo_placement' => $this->logo_placement->value,
+            'logo_size' => $this->logo_size->value,
+            'logo_pixels' => $this->logo_size->pixels(),
             'is_active' => $this->is_active,
             'resumes_count' => $this->whenCounted('resumes'),
         ];

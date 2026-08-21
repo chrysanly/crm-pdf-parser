@@ -43,8 +43,8 @@ export default function CompanyShow({ company, resumes: page }: Props) {
     // flight, and only for the list (partial reload).
     useEffect(() => {
         if (!hasWorkInFlight) {
-return;
-}
+            return;
+        }
 
         const timer = window.setInterval(() => {
             router.reload({ only: ['resumes'] });

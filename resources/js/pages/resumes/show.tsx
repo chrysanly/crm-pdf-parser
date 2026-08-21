@@ -34,8 +34,8 @@ export default function ResumeShow({ resume, canDownload }: Props) {
 
     useEffect(() => {
         if (!inFlight) {
-return;
-}
+            return;
+        }
 
         const timer = window.setInterval(() => {
             router.reload({ only: ['resume'] });

@@ -8,13 +8,19 @@
  *   ResumeResource      -> Resume
  */
 
-export type ResumeTemplateValue = 'classic' | 'modern' | 'compact';
+export type ResumeTemplateValue =
+    'classic' | 'modern' | 'compact' | 'professional';
+
+export type LogoPlacementValue = 'hidden' | 'left' | 'centre' | 'right';
+
+export type LogoSizeValue = 'small' | 'medium' | 'large';
 
 export type ResumeStatusValue = 'pending' | 'processing' | 'parsed' | 'failed';
 
 export type ResumeStatusColor = 'neutral' | 'info' | 'success' | 'danger';
 
 export type SectionKey =
+    | 'details'
     | 'summary'
     | 'experience'
     | 'education'
@@ -27,6 +33,12 @@ export type TemplateOption = {
     label: string;
 };
 
+/** Generic {value,label} pair from a PHP enum's options(). */
+export type EnumOption<T extends string = string> = {
+    value: T;
+    label: string;
+};
+
 export type CompanyCard = {
     id: string;
     slug: string;
@@ -36,6 +48,9 @@ export type CompanyCard = {
     brand_color: string;
     resume_template: ResumeTemplateValue;
     resume_template_label: string;
+    logo_placement: LogoPlacementValue;
+    logo_size: LogoSizeValue;
+    logo_pixels: number;
     is_active: boolean;
     resumes_count?: number;
 };
@@ -71,6 +86,19 @@ export type AtsSection =
     | {
           key: SectionKey;
           label: string;
+          type: 'details';
+          rows: { label: string; value: string }[];
+      }
+    | {
+          key: SectionKey;
+          label: string;
+          type: 'skill_groups';
+          items: string[];
+          groups: { label: string | null; items: string[] }[];
+      }
+    | {
+          key: SectionKey;
+          label: string;
           type: 'timeline';
           entries: AtsTimelineEntry[];
       };
@@ -83,8 +111,22 @@ export type AtsTimelineEntry = {
     highlights: string[];
 };
 
+export type AtsLogo = {
+    placement: Exclude<LogoPlacementValue, 'hidden'>;
+    size: LogoSizeValue;
+    pixels: number;
+};
+
 export type AtsDocument = {
-    header: { name: string; contact_lines: string[] };
+    header: {
+        name: string;
+        /** Job title printed under the name, when the source had one. */
+        headline: string | null;
+        contact_lines: string[];
+        centred: boolean;
+        /** null when the company has no logo or hid it. */
+        logo: AtsLogo | null;
+    };
     sections: AtsSection[];
     score: { value: number; band: 'strong' | 'fair' | 'weak'; notes: string[] };
     warnings: string[];

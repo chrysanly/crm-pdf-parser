@@ -12,18 +12,23 @@ namespace App\DTOs\Parsing;
 final readonly class ParsedResume
 {
     /**
+     * @param  list<DetailItem>  $details  "Personal Details" rows beyond the contact fields
      * @param  list<ExperienceEntry>  $experience
      * @param  list<EducationEntry>  $education
-     * @param  list<string>  $skills
+     * @param  list<SkillGroup>  $skillGroups  skills with their category labels
+     * @param  list<string>  $skills  every skill, flattened (ATS keyword checks)
      * @param  list<string>  $certifications
      * @param  list<string>  $languages
      * @param  list<string>  $warnings  ATS issues found in the source document
      */
     public function __construct(
         public ContactInfo $contact,
+        public ?string $headline,
+        public array $details,
         public ?string $summary,
         public array $experience,
         public array $education,
+        public array $skillGroups,
         public array $skills,
         public array $certifications,
         public array $languages,
@@ -40,8 +45,32 @@ final readonly class ParsedResume
         /** @var array<string, mixed> $contact */
         $contact = is_array($payload['contact'] ?? null) ? $payload['contact'] : [];
 
+        $skillGroups = array_map(
+            SkillGroup::fromArray(...),
+            Cast::rowList($payload['skill_groups'] ?? []),
+        );
+
+        $flatSkills = Cast::stringList($payload['skills'] ?? []);
+
+        // A parser that only sends grouped skills still gets a flat list, and one
+        // that only sends a flat list still gets a single unlabelled group.
+        if ($skillGroups === [] && $flatSkills !== []) {
+            $skillGroups = [new SkillGroup(label: null, items: $flatSkills)];
+        }
+
+        if ($flatSkills === []) {
+            $flatSkills = Cast::stringList(array_merge(
+                ...array_map(static fn (SkillGroup $group): array => $group->items, $skillGroups),
+            ));
+        }
+
         return new self(
             contact: ContactInfo::fromArray($contact),
+            headline: Cast::string($payload['headline'] ?? null),
+            details: array_map(
+                DetailItem::fromArray(...),
+                Cast::rowList($payload['details'] ?? []),
+            ),
             summary: Cast::string($payload['summary'] ?? null),
             experience: array_map(
                 ExperienceEntry::fromArray(...),
@@ -51,7 +80,8 @@ final readonly class ParsedResume
                 EducationEntry::fromArray(...),
                 Cast::rowList($payload['education'] ?? []),
             ),
-            skills: Cast::stringList($payload['skills'] ?? []),
+            skillGroups: $skillGroups,
+            skills: $flatSkills,
             certifications: Cast::stringList($payload['certifications'] ?? []),
             languages: Cast::stringList($payload['languages'] ?? []),
             warnings: Cast::stringList($payload['warnings'] ?? []),
@@ -69,9 +99,12 @@ final readonly class ParsedResume
     {
         return [
             'contact' => $this->contact->toArray(),
+            'headline' => $this->headline,
+            'details' => array_map(static fn (DetailItem $d): array => $d->toArray(), $this->details),
             'summary' => $this->summary,
             'experience' => array_map(static fn (ExperienceEntry $e): array => $e->toArray(), $this->experience),
             'education' => array_map(static fn (EducationEntry $e): array => $e->toArray(), $this->education),
+            'skill_groups' => array_map(static fn (SkillGroup $g): array => $g->toArray(), $this->skillGroups),
             'skills' => $this->skills,
             'certifications' => $this->certifications,
             'languages' => $this->languages,

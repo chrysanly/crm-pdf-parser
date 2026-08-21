@@ -16,12 +16,21 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import companies from '@/routes/companies';
-import type { Company, SectionKey, TemplateOption } from '@/types/models';
+import type {
+    Company,
+    EnumOption,
+    LogoPlacementValue,
+    LogoSizeValue,
+    SectionKey,
+    TemplateOption,
+} from '@/types/models';
 import { CompanyLogo } from './company-logo';
 import { SectionOrderPicker } from './section-order-picker';
 
 type Props = {
     templates: TemplateOption[];
+    logoPlacements: EnumOption<LogoPlacementValue>[];
+    logoSizes: EnumOption<LogoSizeValue>[];
     /** Absent = create mode. */
     company?: Company;
 };
@@ -39,9 +48,16 @@ type FormValues = {
     is_active: boolean;
     logo: File | null;
     remove_logo: boolean;
+    logo_placement: LogoPlacementValue;
+    logo_size: LogoSizeValue;
 };
 
-export function CompanyForm({ templates, company }: Props) {
+export function CompanyForm({
+    templates,
+    logoPlacements,
+    logoSizes,
+    company,
+}: Props) {
     const isEdit = company !== undefined;
 
     const form = useForm<FormValues>({
@@ -59,6 +75,8 @@ export function CompanyForm({ templates, company }: Props) {
         is_active: company?.is_active ?? true,
         logo: null,
         remove_logo: false,
+        logo_placement: company?.logo_placement ?? 'right',
+        logo_size: company?.logo_size ?? 'medium',
     });
 
     const { data, setData, processing, errors, progress } = form;
@@ -66,12 +84,12 @@ export function CompanyForm({ templates, company }: Props) {
 
     const logoUrl = useMemo(() => {
         if (preview !== null) {
-return preview;
-}
+            return preview;
+        }
 
         if (data.remove_logo) {
-return null;
-}
+            return null;
+        }
 
         return company?.logo_url ?? null;
     }, [preview, data.remove_logo, company?.logo_url]);
@@ -275,6 +293,74 @@ return null;
                             </p>
                             <InputError message={errors.logo} />
                         </div>
+
+                        {/* Letterhead: saved per company and applied to every
+                            resume preview and printout for that client. */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="logo_placement">
+                                Logo on the resume
+                            </Label>
+                            <Select
+                                value={data.logo_placement}
+                                onValueChange={(value) =>
+                                    setData(
+                                        'logo_placement',
+                                        value as LogoPlacementValue,
+                                    )
+                                }
+                            >
+                                <SelectTrigger id="logo_placement">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {logoPlacements.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={errors.logo_placement} />
+                        </div>
+
+                        {data.logo_placement !== 'hidden' && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="logo_size">Logo size</Label>
+                                <div
+                                    className="flex gap-2"
+                                    role="group"
+                                    aria-labelledby="logo_size"
+                                >
+                                    {logoSizes.map((option) => (
+                                        <Button
+                                            key={option.value}
+                                            type="button"
+                                            variant={
+                                                data.logo_size === option.value
+                                                    ? 'default'
+                                                    : 'outline'
+                                            }
+                                            size="sm"
+                                            aria-pressed={
+                                                data.logo_size === option.value
+                                            }
+                                            onClick={() =>
+                                                setData(
+                                                    'logo_size',
+                                                    option.value,
+                                                )
+                                            }
+                                        >
+                                            {option.label}
+                                        </Button>
+                                    ))}
+                                </div>
+                                <InputError message={errors.logo_size} />
+                            </div>
+                        )}
 
                         <div className="grid gap-2">
                             <Label htmlFor="brand_color">Brand colour</Label>

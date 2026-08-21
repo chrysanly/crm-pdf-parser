@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,6 +30,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $contact_phone
  * @property string|null $website
  * @property string|null $logo_path
+ * @property LogoPlacement $logo_placement
+ * @property LogoSize $logo_size
  * @property string $brand_color
  * @property ResumeTemplate $resume_template
  * @property list<string>|null $section_order
@@ -47,6 +51,8 @@ use Illuminate\Support\Carbon;
     'contact_phone',
     'website',
     'logo_path',
+    'logo_placement',
+    'logo_size',
     'brand_color',
     'resume_template',
     'section_order',
@@ -83,6 +89,8 @@ class Company extends Model
     {
         return [
             'resume_template' => ResumeTemplate::class,
+            'logo_placement' => LogoPlacement::class,
+            'logo_size' => LogoSize::class,
             'section_order' => 'array',
             'is_active' => 'boolean',
         ];

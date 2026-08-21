@@ -58,9 +58,16 @@ class SkillGroup(BaseModel):
 
 class ParsedResume(BaseModel):
     contact: Contact = Field(default_factory=Contact)
+    #: Job title printed under the name, e.g. "Senior Full-Stack Developer".
+    headline: str | None = None
+    #: "Personal Details" rows the contact fields don't cover (DOB, civil status…).
+    details: list[DetailItem] = Field(default_factory=list)
     summary: str | None = None
     experience: list[ExperienceEntry] = Field(default_factory=list)
     education: list[EducationEntry] = Field(default_factory=list)
+    #: Skills as printed, keeping their category labels.
+    skill_groups: list[SkillGroup] = Field(default_factory=list)
+    #: Flattened skills — kept so existing consumers and ATS keyword checks work.
     skills: list[str] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)

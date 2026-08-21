@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\DTOs;
 
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use App\Http\Requests\Company\StoreCompanyRequest;
 use App\Http\Requests\Company\UpdateCompanyRequest;
@@ -22,6 +24,8 @@ final readonly class CompanyData
         public ?string $website,
         public string $brandColor,
         public ResumeTemplate $resumeTemplate,
+        public LogoPlacement $logoPlacement,
+        public LogoSize $logoSize,
         public ?array $sectionOrder,
         public ?string $formattingNotes,
         public bool $isActive,
@@ -49,6 +53,8 @@ final readonly class CompanyData
             website: self::nullableString($validated['website'] ?? null),
             brandColor: (string) ($validated['brand_color'] ?? '#1F2937'),
             resumeTemplate: ResumeTemplate::from((string) $validated['resume_template']),
+            logoPlacement: LogoPlacement::from((string) ($validated['logo_placement'] ?? 'right')),
+            logoSize: LogoSize::from((string) ($validated['logo_size'] ?? 'medium')),
             sectionOrder: $sectionOrder,
             formattingNotes: self::nullableString($validated['formatting_notes'] ?? null),
             isActive: (bool) ($validated['is_active'] ?? true),
@@ -73,6 +79,8 @@ final readonly class CompanyData
             'website' => $this->website,
             'brand_color' => $this->brandColor,
             'resume_template' => $this->resumeTemplate,
+            'logo_placement' => $this->logoPlacement,
+            'logo_size' => $this->logoSize,
             'section_order' => $this->sectionOrder,
             'formatting_notes' => $this->formattingNotes,
             'is_active' => $this->isActive,

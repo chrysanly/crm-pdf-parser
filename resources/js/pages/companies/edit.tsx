@@ -13,14 +13,27 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import companies from '@/routes/companies';
-import type { Company, TemplateOption } from '@/types/models';
+import type {
+    Company,
+    EnumOption,
+    LogoPlacementValue,
+    LogoSizeValue,
+    TemplateOption,
+} from '@/types/models';
 
 type Props = {
     company: Company;
     templates: TemplateOption[];
+    logoPlacements: EnumOption<LogoPlacementValue>[];
+    logoSizes: EnumOption<LogoSizeValue>[];
 };
 
-export default function CompanyEdit({ company, templates }: Props) {
+export default function CompanyEdit({
+    company,
+    templates,
+    logoPlacements,
+    logoSizes,
+}: Props) {
     return (
         <>
             <Head title={`Edit ${company.name}`} />
@@ -78,7 +91,12 @@ export default function CompanyEdit({ company, templates }: Props) {
                     </Dialog>
                 </div>
 
-                <CompanyForm templates={templates} company={company} />
+                <CompanyForm
+                    templates={templates}
+                    logoPlacements={logoPlacements}
+                    logoSizes={logoSizes}
+                    company={company}
+                />
 
                 <Button variant="ghost" asChild className="w-fit">
                     <Link href={companies.show(company.slug)}>

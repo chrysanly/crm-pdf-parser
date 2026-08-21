@@ -1,13 +1,24 @@
 import { Head } from '@inertiajs/react';
 import { CompanyForm } from '@/components/crm/company-form';
 import companies from '@/routes/companies';
-import type { TemplateOption } from '@/types/models';
+import type {
+    EnumOption,
+    LogoPlacementValue,
+    LogoSizeValue,
+    TemplateOption,
+} from '@/types/models';
 
 type Props = {
     templates: TemplateOption[];
+    logoPlacements: EnumOption<LogoPlacementValue>[];
+    logoSizes: EnumOption<LogoSizeValue>[];
 };
 
-export default function CompanyCreate({ templates }: Props) {
+export default function CompanyCreate({
+    templates,
+    logoPlacements,
+    logoSizes,
+}: Props) {
     return (
         <>
             <Head title="Add company" />
@@ -22,7 +33,11 @@ export default function CompanyCreate({ templates }: Props) {
                     </p>
                 </div>
 
-                <CompanyForm templates={templates} />
+                <CompanyForm
+                    templates={templates}
+                    logoPlacements={logoPlacements}
+                    logoSizes={logoSizes}
+                />
             </div>
         </>
     );

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Company;
 
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use Illuminate\Validation\Rule;
 
@@ -26,9 +28,9 @@ trait CompanyValidationRules
             'website' => ['nullable', 'url', 'max:255'],
             'brand_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'resume_template' => ['required', Rule::enum(ResumeTemplate::class)],
-            'section_order' => ['nullable', 'array', 'max:6'],
+            'section_order' => ['nullable', 'array', 'max:7'],
             'section_order.*' => ['required', 'string', Rule::in([
-                'summary', 'experience', 'education', 'skills', 'certifications', 'languages',
+                'details', 'summary', 'experience', 'education', 'skills', 'certifications', 'languages',
             ])],
             'formatting_notes' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['boolean'],
@@ -43,6 +45,8 @@ trait CompanyValidationRules
                 'dimensions:min_width=64,min_height=64,max_width=4000,max_height=4000',
             ],
             'remove_logo' => ['boolean'],
+            'logo_placement' => ['required', Rule::enum(LogoPlacement::class)],
+            'logo_size' => ['required', Rule::enum(LogoSize::class)],
         ];
     }
 

@@ -12,9 +12,11 @@ import re
 from .schemas import (
     PARSER_VERSION,
     Contact,
+    DetailItem,
     EducationEntry,
     ExperienceEntry,
     ParsedResume,
+    SkillGroup,
 )
 
 # --- section detection -------------------------------------------------------
@@ -29,6 +31,7 @@ SECTION_ALIASES: dict[str, tuple[str, ...]] = {
     "skills": ("skills", "core skills", "technical skills", "key skills", "competencies", "expertise"),
     "certifications": ("certifications", "certificates", "licenses", "training", "courses"),
     "languages": ("languages", "language skills"),
+    "details": ("personal details", "personal information", "personal info", "details", "contact", "contact details"),
 }
 
 _HEADING_LOOKUP = {
@@ -64,14 +67,19 @@ def parse(text: str, page_count: int | None = None, warnings: tuple[str, ...] = 
 
     sections = _segment(lines)
     header_lines = sections.get("_header", [])
+    detail_lines = sections.get("details", [])
 
-    contact = _contact(header_lines or lines[:12], lines)
+    # A "Personal Details" block carries the contact info the header usually holds.
+    contact = _contact(header_lines + detail_lines or lines[:12], lines)
+    headline = _headline(header_lines, contact.full_name)
+    details = _details(detail_lines)
     summary = _summary(sections.get("summary", []), header_lines)
     experience = _experience(sections.get("experience", []), collected)
     education = _education(sections.get("education", []))
-    skills = _flat_items(sections.get("skills", []))
+    skill_groups = _skill_groups(sections.get("skills", []))
+    skills = [item for group in skill_groups for item in group.items]
     certifications = _flat_items(sections.get("certifications", []))
-    languages = _flat_items(sections.get("languages", []))
+    languages = _flat_items(sections.get("languages", [])) or _languages_from(details)
 
     if not sections.get("experience"):
         collected.append("No experience heading was found; work history may be incomplete.")
@@ -80,9 +88,12 @@ def parse(text: str, page_count: int | None = None, warnings: tuple[str, ...] = 
 
     return ParsedResume(
         contact=contact,
+        headline=headline,
+        details=details,
         summary=summary,
         experience=experience,
         education=education,
+        skill_groups=skill_groups,
         skills=skills,
         certifications=certifications,
         languages=languages,
@@ -90,6 +101,134 @@ def parse(text: str, page_count: int | None = None, warnings: tuple[str, ...] = 
         page_count=page_count,
         parser_version=PARSER_VERSION,
     )
+
+
+#: "Date of Birth: June 24, 1997" — a short label before a colon.
+DETAIL_ROW_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z /&.'-]{2,32}):\s*(?P<value>.+)$")
+
+#: Labels already represented by dedicated contact fields, so they are not repeated
+#: in the details block.
+CONTACT_LABELS = {
+    "phone", "phone number", "mobile", "mobile number", "tel", "telephone",
+    "email", "e-mail", "email address", "address", "location", "linkedin",
+}
+
+
+def _headline(header: list[str], full_name: str | None) -> str | None:
+    """The job title printed under the name ("Senior Full-Stack Developer").
+
+    It is the first header line after the name that is short, carries no contact
+    details, and is not itself a detail row.
+    """
+    if full_name is None:
+        return None
+
+    seen_name = False
+
+    for line in header[:6]:
+        if not seen_name:
+            if line.strip().lower() == full_name.strip().lower():
+                seen_name = True
+            continue
+
+        candidate = line.strip()
+
+        if (
+            not candidate
+            or len(candidate) > 60
+            or EMAIL_RE.search(candidate)
+            or PHONE_RE.search(candidate)
+            or URL_RE.search(candidate)
+            or DETAIL_ROW_RE.match(candidate)
+            or BULLET_RE.match(candidate)
+        ):
+            continue
+
+        return candidate
+
+    return None
+
+
+def _details(section: list[str]) -> list[DetailItem]:
+    """Rows of a "Personal Details" block, minus anything already in `contact`."""
+    details: list[DetailItem] = []
+
+    for line in section:
+        match = DETAIL_ROW_RE.match(line.strip())
+
+        if match is None:
+            continue
+
+        label = match.group("label").strip()
+        value = match.group("value").strip()
+
+        if not value or label.lower() in CONTACT_LABELS:
+            continue
+
+        details.append(DetailItem(label=label, value=value))
+
+    return details
+
+
+def _languages_from(details: list[DetailItem]) -> list[str]:
+    """Many resumes put languages in the details block, not their own section."""
+    for detail in details:
+        if detail.label.lower() in {"language", "languages"}:
+            return [
+                part.strip()
+                for part in re.split(r"\s*(?:,|;|&|/|\band\b)\s*", detail.value)
+                if part.strip()
+            ]
+
+    return []
+
+
+def _skill_groups(section: list[str]) -> list[SkillGroup]:
+    """Keep skill categories as printed: "Databases: MySQL, MariaDB, ...".
+
+    Lines without a label are wrapped continuations and are glued back on before
+    the list is split, so an item broken across a line break ("Angular" / "7-10")
+    survives as one skill. A resume with no categories yields one unlabelled group.
+    """
+    blocks: list[tuple[str | None, str]] = []
+
+    for raw in section:
+        line = BULLET_RE.sub("", raw).strip()
+
+        if not line:
+            continue
+
+        match = DETAIL_ROW_RE.match(line)
+
+        if match is not None and match.group("value").strip():
+            blocks.append((match.group("label").strip(), match.group("value").strip()))
+            continue
+
+        if blocks:
+            label, text = blocks[-1]
+            blocks[-1] = (label, f"{text} {line}")
+            continue
+
+        blocks.append((None, line))
+
+    groups = [
+        SkillGroup(label=label, items=list(dict.fromkeys(_split_items(text))))
+        for label, text in blocks
+    ]
+
+    return [group for group in groups if group.items]
+
+
+def _split_items(value: str) -> list[str]:
+    items = []
+
+    for part in re.split(r"\s*[,;|•]\s*", value):
+        item = part.strip(" .-")
+
+        if item and len(item) <= 80:
+            items.append(item)
+
+    return items
 
 
 def _segment(lines: list[str]) -> dict[str, list[str]]:

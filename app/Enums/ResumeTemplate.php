@@ -13,6 +13,7 @@ enum ResumeTemplate: string
     case Classic = 'classic';
     case Modern = 'modern';
     case Compact = 'compact';
+    case Professional = 'professional';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum ResumeTemplate: string
             self::Classic => __('Classic — chronological, single column'),
             self::Modern => __('Modern — summary-led with skills band'),
             self::Compact => __('Compact — one page, dense'),
+            self::Professional => __('Professional — centred header, ruled sections'),
         };
     }
 
@@ -35,7 +37,19 @@ enum ResumeTemplate: string
             self::Classic => ['summary', 'experience', 'education', 'skills', 'certifications', 'languages'],
             self::Modern => ['summary', 'skills', 'experience', 'certifications', 'education', 'languages'],
             self::Compact => ['summary', 'skills', 'experience', 'education'],
+            // Mirrors the reference document: details, summary, skills, experience,
+            // then education.
+            self::Professional => ['details', 'summary', 'skills', 'experience', 'certifications', 'education', 'languages'],
         };
+    }
+
+    /**
+     * Templates that print a centred name + job-title header and ruled section
+     * rules, rather than a left-aligned header.
+     */
+    public function hasCentredHeader(): bool
+    {
+        return $this === self::Professional;
     }
 
     /**

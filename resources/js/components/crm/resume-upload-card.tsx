@@ -37,8 +37,8 @@ export function ResumeUploadCard({ company }: Props) {
 
     function accept(file: File | undefined) {
         if (file === undefined) {
-return;
-}
+            return;
+        }
 
         setData('file', file);
     }

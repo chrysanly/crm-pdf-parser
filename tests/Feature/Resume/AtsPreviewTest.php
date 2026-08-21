@@ -7,6 +7,8 @@ namespace Tests\Feature\Resume;
 use App\Actions\Resume\ParseResume;
 use App\Contracts\ResumeParser;
 use App\DTOs\Parsing\ParsedResume;
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use App\Models\Company;
 use App\Models\Resume;
@@ -103,6 +105,29 @@ final class AtsPreviewTest extends TestCase
         $this->assertNotSame($orders[0], $orders[1]);
         $this->assertSame('experience', $orders[0][1]);   // classic: summary, experience…
         $this->assertSame('skills', $orders[1][1]);       // modern: summary, skills…
+    }
+
+    public function test_the_professional_template_reaches_the_page_with_its_letterhead(): void
+    {
+        $company = Company::factory()
+            ->template(ResumeTemplate::Professional)
+            ->create([
+                'logo_path' => 'company-logos/acme.png',
+                'logo_placement' => LogoPlacement::Centre,
+                'logo_size' => LogoSize::Large,
+            ]);
+
+        $resume = Resume::factory()->parsed()->for($company)->create();
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('resumes.show', $resume))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('resume.ats.template', 'professional')
+                ->where('resume.ats.header.centred', true)
+                ->where('resume.ats.header.logo.placement', 'centre')
+                ->where('resume.ats.header.logo.pixels', 72)
+            );
     }
 
     /**

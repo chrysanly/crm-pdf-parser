@@ -183,6 +183,88 @@ def test_a_degree_wrapped_onto_two_lines_is_one_qualification():
     assert resume.education[0].end_date == "2020"
 
 
+DETAILED_RESUME = """Chrysanly John C. Roma
+Senior Full-Stack Developer
+
+PERSONAL DETAILS
+Phone number: +971 52 925 8013
+Email: chrys.romao21@gmail.com
+Date of Birth: June 24, 1997
+Civil Status: Single
+Language: Filipino & English
+Portfolio: https://chrysanly.github.io/portfolio_v2/
+
+TECHNICAL SKILLS
+Languages & Frameworks: PHP, JavaScript, Laravel 7-12, Node.js, Vue 3, Angular
+7-10, .NET Web API
+Databases: MySQL, PostgreSQL
+Architecture & Practices: SOLID Principles, RESTful API Design, Role-Based
+Access Control (RBAC), TDD
+"""
+
+
+def test_the_job_title_under_the_name_becomes_the_headline():
+    resume = parse(DETAILED_RESUME)
+
+    assert resume.contact.full_name == "Chrysanly John C. Roma"
+    assert resume.headline == "Senior Full-Stack Developer"
+
+
+def test_personal_details_are_captured_without_duplicating_contact_fields():
+    resume = parse(DETAILED_RESUME)
+
+    labels = {detail.label: detail.value for detail in resume.details}
+
+    assert labels["Date of Birth"] == "June 24, 1997"
+    assert labels["Civil Status"] == "Single"
+    # Phone/email have dedicated contact fields, so they are not repeated here.
+    assert "Phone number" not in labels
+    assert "Email" not in labels
+    assert resume.contact.phone == "+971529258013"
+    assert resume.contact.email == "chrys.romao21@gmail.com"
+
+
+def test_languages_fall_back_to_the_details_block():
+    resume = parse(DETAILED_RESUME)
+
+    assert resume.languages == ["Filipino", "English"]
+
+
+def test_skills_keep_their_category_labels():
+    resume = parse(DETAILED_RESUME)
+
+    labels = [group.label for group in resume.skill_groups]
+
+    assert labels == ["Languages & Frameworks", "Databases", "Architecture & Practices"]
+    assert resume.skill_groups[1].items == ["MySQL", "PostgreSQL"]
+
+
+def test_a_skill_split_across_a_line_break_stays_one_item():
+    resume = parse(DETAILED_RESUME)
+
+    frameworks = resume.skill_groups[0].items
+    practices = resume.skill_groups[2].items
+
+    assert "Angular 7-10" in frameworks
+    assert "Angular" not in frameworks
+    assert "Role-Based Access Control (RBAC)" in practices
+
+
+def test_the_flat_skill_list_still_mirrors_every_group():
+    resume = parse(DETAILED_RESUME)
+
+    expected = [item for group in resume.skill_groups for item in group.items]
+
+    assert resume.skills == expected
+
+
+def test_an_uncategorised_skills_list_becomes_one_unlabelled_group():
+    resume = parse(RESUME)
+
+    assert [group.label for group in resume.skill_groups] == [None]
+    assert "Power BI" in resume.skill_groups[0].items
+
+
 def test_page_count_and_warnings_pass_through():
     resume = parse(RESUME, page_count=3, warnings=("two-column layout",))
 

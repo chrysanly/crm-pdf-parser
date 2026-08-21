@@ -8,6 +8,8 @@ use App\Actions\Company\CreateCompany;
 use App\Actions\Company\DeleteCompany;
 use App\Actions\Company\UpdateCompany;
 use App\DTOs\CompanyData;
+use App\Enums\LogoPlacement;
+use App\Enums\LogoSize;
 use App\Enums\ResumeTemplate;
 use App\Http\Requests\Company\StoreCompanyRequest;
 use App\Http\Requests\Company\UpdateCompanyRequest;
@@ -33,7 +35,7 @@ final class CompanyController extends Controller
         $search = $request->string('search')->toString();
 
         $companies = Company::query()
-            ->select(['id', 'public_id', 'slug', 'name', 'industry', 'logo_path', 'brand_color', 'resume_template', 'is_active'])
+            ->select(['id', 'public_id', 'slug', 'name', 'industry', 'logo_path', 'logo_placement', 'logo_size', 'brand_color', 'resume_template', 'is_active'])
             ->withCount('resumes')
             ->search($search)
             ->orderBy('name')
@@ -52,6 +54,8 @@ final class CompanyController extends Controller
 
         return Inertia::render('companies/create', [
             'templates' => ResumeTemplate::options(),
+            'logoPlacements' => LogoPlacement::options(),
+            'logoSizes' => LogoSize::options(),
         ]);
     }
 
@@ -86,6 +90,8 @@ final class CompanyController extends Controller
         return Inertia::render('companies/edit', [
             'company' => new CompanyResource($company),
             'templates' => ResumeTemplate::options(),
+            'logoPlacements' => LogoPlacement::options(),
+            'logoSizes' => LogoSize::options(),
         ]);
     }
 
