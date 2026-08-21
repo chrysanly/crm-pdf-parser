@@ -180,6 +180,29 @@ repo. After every frontend edit, read its output before doing anything else.**
 Same discipline server-side: keep `php artisan pail` handy for Laravel-side exceptions rather
 than guessing from a browser error page.
 
+### Long-lived processes serve STALE code and config — restart them
+
+This has already caused two "impossible" bugs (a real upload rendering sample data; a fixed
+parser still returning old output). Three processes cache the app at boot:
+
+| Process | Caches | Restart after |
+|---|---|---|
+| `php artisan queue:work` | **all PHP code + `.env`** | any code or `.env` change → `php artisan queue:restart` |
+| `uvicorn` (sidecar) | Python modules | any `sidecar/**.py` change → use `--reload` |
+| `php artisan serve` / vite SSR | compiled views/SSR bundle | usually self-reloads; restart if output looks impossible |
+
+Rules of thumb:
+
+- **A queue worker never sees a config change.** After editing `.env` (especially
+  `SIDECAR_DRIVER`), run `php artisan queue:restart` or the job keeps using the old value.
+- Run the sidecar with `--reload` in development.
+- When a result contradicts the code you just wrote, **suspect a stale process before
+  suspecting the logic** — verify by running the same thing in a fresh process
+  (`php artisan tinker --execute=…`, or curl the sidecar directly). If fresh differs from the
+  worker, it's staleness.
+- `bootstrap/cache/config.php` (from `config:cache`) freezes `.env` for *every* process —
+  `php artisan config:clear` in development.
+
 ### Tooling not yet installed (SETUP.md §1–§6 still pending)
 
 Debugbar, Telescope, IDE Helper and Spatie Permission are **not installed**. Larastan and

@@ -18,7 +18,7 @@ export function AtsResumePreview({ document, company }: Props) {
     return (
         <article
             className={cn(
-                'mx-auto w-full max-w-3xl bg-white p-8 text-neutral-900 shadow-sm print:shadow-none dark:bg-neutral-50',
+                'mx-auto w-full max-w-3xl bg-white p-8 text-neutral-900 shadow-sm dark:bg-neutral-50 print:shadow-none',
                 compact && 'p-6 text-[13px] leading-snug',
             )}
         >
@@ -64,7 +64,9 @@ export function AtsResumePreview({ document, company }: Props) {
                 </div>
             </header>
 
-            <div className={cn('divide-y', compact ? 'text-[13px]' : 'text-sm')}>
+            <div
+                className={cn('divide-y', compact ? 'text-[13px]' : 'text-sm')}
+            >
                 {document.sections.map((section) => (
                     <Section
                         key={section.key}
@@ -92,9 +94,7 @@ function Section({
             <h3
                 className="mb-2 text-xs font-semibold tracking-[0.12em] uppercase"
                 style={
-                    template === 'classic'
-                        ? undefined
-                        : { color: brandColor }
+                    template === 'classic' ? undefined : { color: brandColor }
                 }
             >
                 {section.label}

@@ -28,7 +28,9 @@ export default function CompanyEdit({ company, templates }: Props) {
             <div className="flex flex-col gap-6 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">Edit {company.name}</h1>
+                        <h1 className="text-xl font-semibold">
+                            Edit {company.name}
+                        </h1>
                         <p className="text-sm text-muted-foreground">
                             Changes apply to resumes reformatted from now on.
                         </p>
@@ -36,7 +38,10 @@ export default function CompanyEdit({ company, templates }: Props) {
 
                     <Dialog>
                         <DialogTrigger asChild>
-                            <Button variant="outline" className="text-destructive">
+                            <Button
+                                variant="outline"
+                                className="text-destructive"
+                            >
                                 <Trash2 className="size-4" aria-hidden />
                                 Archive company
                             </Button>
@@ -48,9 +53,10 @@ export default function CompanyEdit({ company, templates }: Props) {
                                     Archive “{company.name}”?
                                 </DialogTitle>
                                 <DialogDescription>
-                                    It disappears from the company list and stops
-                                    accepting uploads. Existing resumes and their ATS
-                                    output stay available for audit.
+                                    It disappears from the company list and
+                                    stops accepting uploads. Existing resumes
+                                    and their ATS output stay available for
+                                    audit.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
@@ -75,7 +81,9 @@ export default function CompanyEdit({ company, templates }: Props) {
                 <CompanyForm templates={templates} company={company} />
 
                 <Button variant="ghost" asChild className="w-fit">
-                    <Link href={companies.show(company.slug)}>Back to company</Link>
+                    <Link href={companies.show(company.slug)}>
+                        Back to company
+                    </Link>
                 </Button>
             </div>
         </>

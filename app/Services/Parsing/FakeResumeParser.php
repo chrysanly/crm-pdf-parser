@@ -6,6 +6,7 @@ namespace App\Services\Parsing;
 
 use App\Contracts\ResumeParser;
 use App\DTOs\Parsing\ParsedResume;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Deterministic parser for tests and for running the app without the Python
@@ -15,6 +16,15 @@ final readonly class FakeResumeParser implements ResumeParser
 {
     public function parse(string $storedPath, string $originalFilename): ParsedResume
     {
+        // Outside tests this is almost always a misconfiguration: the operator
+        // thinks they are parsing a real document. Say so in the log.
+        if (! app()->runningUnitTests()) {
+            Log::warning('resume.fake_parser_used', [
+                'reason' => 'SIDECAR_DRIVER is not "sidecar" — returning SAMPLE data, not the uploaded file.',
+                'driver' => config('services.sidecar.driver'),
+            ]);
+        }
+
         return ParsedResume::fromArray(self::payload());
     }
 

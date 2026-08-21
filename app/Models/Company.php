@@ -8,6 +8,7 @@ use App\Enums\ResumeTemplate;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,7 +36,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Resume> $resumes
+ * @property-read Collection<int, Resume> $resumes
  * @property-read int|null $resumes_count
  */
 #[Fillable([
@@ -133,6 +134,6 @@ class Company extends Model
 
         return $override === null || $override === []
             ? $this->resume_template->defaultSectionOrder()
-            : array_values($override);
+            : $override;
     }
 }

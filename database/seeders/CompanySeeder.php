@@ -64,27 +64,21 @@ final class CompanySeeder extends Seeder
         ];
 
         foreach ($companies as $attributes) {
-            $company = Company::query()->updateOrCreate(
+            Company::query()->updateOrCreate(
                 ['slug' => $attributes['slug']],
                 [...$attributes, 'is_active' => true],
             );
-
-            if ($company->resumes()->exists()) {
-                continue;
-            }
-
-            Resume::factory()
-                ->parsed()
-                ->for($company)
-                ->create([
-                    'uploaded_by' => $uploader->id,
-                    'original_filename' => 'layla-haddad-cv.pdf',
-                ]);
         }
 
-        // One of each non-happy state so the UI's error/empty paths are visible.
+        // Deliberately NO seeded "parsed" resumes: fabricated parse output is
+        // indistinguishable from a real one in the UI and reads as a bug (it is
+        // how sample data ended up on a real upload's preview). Companies start
+        // empty — upload a PDF to see a genuine parse.
+        //
+        // One failed row is kept so the error/retry path is visible without an
+        // upload; it carries no fabricated candidate data.
         Resume::factory()
-            ->failed()
+            ->failed(__('No readable text was found in this PDF. Scanned images are not supported yet.'))
             ->for(Company::query()->where('slug', 'gulf-freight-partners')->firstOrFail())
             ->create([
                 'uploaded_by' => $uploader->id,

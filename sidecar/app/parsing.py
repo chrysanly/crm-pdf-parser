@@ -200,51 +200,100 @@ def _summary(section: list[str], header: list[str]) -> str | None:
     return None
 
 
+TRAILING_JUNK = " |,-–—•\t"
+
+
+def _classify(line: str, previous: str | None) -> str:
+    """Label one line of the experience section.
+
+    Resumes wrap: a role header, its date range, and its achievement bullets are
+    each free to land on their own line, and a long bullet continues on the next
+    one. Getting these four cases apart is the whole job — misreading a wrapped
+    line as a header invents a phantom job.
+    """
+    if BULLET_RE.match(line):
+        return "bullet"
+
+    match = DATE_RANGE_RE.search(line)
+    remainder = DATE_RANGE_RE.sub("", line).strip(TRAILING_JUNK) if match else line
+
+    if match and not remainder:
+        return "dates"          # e.g. "Nov 2025 - Present" under its own header
+    if match:
+        return "header_dated"   # e.g. "Engineer | Acme    Mar 2021 - Present"
+
+    # No dates: header or wrapped text?
+    if len(line) > 120 or line[:1].islower():
+        return "continuation"
+
+    # " - " / " | " / " @ " between role and employer is the strongest header signal.
+    if SEPARATOR_RE.search(line):
+        return "header"
+
+    # Otherwise a line following bullets/wrapped text is the tail of that text,
+    # while a short Title-Case line on its own is a header.
+    if previous in {"bullet", "continuation"}:
+        return "continuation"
+
+    return "header" if len(line.split()) <= 8 else "continuation"
+
+
+def _blank_entry() -> dict:
+    return {
+        "title": "",
+        "company": None,
+        "location": None,
+        "start_date": None,
+        "end_date": None,
+        "is_current": False,
+        "highlights": [],
+    }
+
+
+def _apply_dates(entry: dict, match: re.Match[str], warnings: list[str]) -> None:
+    end_raw = match.group("end")
+    is_current = bool(re.fullmatch(_PRESENT, end_raw.strip(), re.I))
+
+    if is_current:
+        warnings.append('An open end date ("Present") was normalised to a current role.')
+
+    entry["start_date"] = _iso_month(match.group("start"))
+    entry["end_date"] = None if is_current else _iso_month(end_raw)
+    entry["is_current"] = is_current
+
+
 def _experience(section: list[str], warnings: list[str]) -> list[ExperienceEntry]:
     entries: list[ExperienceEntry] = []
     current: dict | None = None
+    previous: str | None = None
 
     for line in section:
-        match = DATE_RANGE_RE.search(line)
-        is_bullet = bool(BULLET_RE.match(line))
+        kind = _classify(line, previous)
+        previous = kind
 
-        if match and not is_bullet:
+        if kind in {"header", "header_dated"}:
             if current is not None:
                 entries.append(_finish_experience(current))
 
-            end_raw = match.group("end")
-            is_current = bool(re.fullmatch(_PRESENT, end_raw.strip(), re.I))
+            match = DATE_RANGE_RE.search(line) if kind == "header_dated" else None
+            remainder = DATE_RANGE_RE.sub("", line).strip(TRAILING_JUNK) if match else line
 
-            if is_current:
-                warnings.append('An open end date ("Present") was normalised to a current role.')
+            title, company, location = _split_header(remainder)
+            current = _blank_entry()
+            current.update({"title": title, "company": company, "location": location})
 
-            remainder = DATE_RANGE_RE.sub("", line).strip(" |,-–—•\t")
-            title, company = _split_role(remainder)
+            if match is not None:
+                _apply_dates(current, match, warnings)
 
-            current = {
-                "title": title,
-                "company": company,
-                "location": None,
-                "start_date": _iso_month(match.group("start")),
-                "end_date": None if is_current else _iso_month(end_raw),
-                "is_current": is_current,
-                "highlights": [],
-            }
             continue
 
         if current is None:
-            # Content before the first dated role: treat as a role header we will
-            # complete when its dates show up on the following line.
-            title, company = _split_role(line)
-            current = {
-                "title": title,
-                "company": company,
-                "location": None,
-                "start_date": None,
-                "end_date": None,
-                "is_current": False,
-                "highlights": [],
-            }
+            current = _blank_entry()
+
+        if kind == "dates":
+            date_match = DATE_RANGE_RE.search(line)
+            if date_match is not None:
+                _apply_dates(current, date_match, warnings)
             continue
 
         text = BULLET_RE.sub("", line).strip()
@@ -252,8 +301,15 @@ def _experience(section: list[str], warnings: list[str]) -> list[ExperienceEntry
         if not text:
             continue
 
-        if is_bullet or len(text) > 45:
+        if kind == "bullet":
             current["highlights"].append(text)
+            continue
+
+        # Continuation: glue it back onto whatever it wrapped from.
+        if current["highlights"]:
+            current["highlights"][-1] = f"{current['highlights'][-1]} {text}".strip()
+        elif not current["title"]:
+            current["title"] = text
         elif current["company"] is None:
             current["company"] = text
         else:
@@ -290,10 +346,52 @@ def _split_role(line: str) -> tuple[str, str | None]:
     return line.strip(), None
 
 
+LOCATION_TAIL_RE = re.compile(
+    r"^(?:remote|[\w .'-]+,\s*[\w .'-]+|"
+    + "|".join(re.escape(hint) for hint in ("uae", "united arab emirates", "philippines", "ksa", "qatar"))
+    + r")$",
+    re.I,
+)
+
+
+def _split_header(line: str) -> tuple[str, str | None, str | None]:
+    """"Engineer - Acme Ltd - Dubai, UAE" -> role, employer, location.
+
+    The third segment is only taken as a location when it actually looks like
+    one; otherwise it stays part of the employer name (many companies have a
+    dash in them).
+    """
+    if not line:
+        return "", None, None
+
+    parts = [part.strip() for part in SEPARATOR_RE.split(line) if part.strip()]
+
+    if len(parts) == 1:
+        return parts[0], None, None
+
+    title = parts[0]
+    rest = parts[1:]
+
+    location = None
+    if len(rest) > 1 and LOCATION_TAIL_RE.match(rest[-1]):
+        location = rest.pop()
+
+    company = " - ".join(rest) if rest else None
+
+    return title, company, location
+
+
+DEGREE_RE = re.compile(
+    r"\b(bachelor|master|doctor|phd|ph\.d|bsc|b\.sc|ba\b|b\.a|msc|m\.sc|mba|"
+    r"diploma|associate|certificate|high school|secondary)\b",
+    re.I,
+)
+
+
 def _education(section: list[str]) -> list[EducationEntry]:
     entries: list[EducationEntry] = []
 
-    for line in section:
+    for line in _join_degree_wraps(section):
         match = DATE_RANGE_RE.search(line)
         remainder = DATE_RANGE_RE.sub("", line) if match else line
         years = re.findall(r"\b(?:19|20)\d{2}\b", line)
@@ -323,6 +421,40 @@ def _education(section: list[str]) -> list[EducationEntry]:
         )
 
     return entries
+
+
+def _join_degree_wraps(section: list[str]) -> list[str]:
+    """Rejoin an education entry split across two lines.
+
+    "Bachelor of Science in IT" / "Our Lady of Lourdes College | 2020" is one
+    qualification, not two. A degree line with no institution absorbs the
+    following line when that line names no degree of its own.
+    """
+    joined: list[str] = []
+    index = 0
+
+    while index < len(section):
+        line = section[index]
+        following = section[index + 1] if index + 1 < len(section) else None
+
+        wraps = (
+            following is not None
+            and DEGREE_RE.search(line) is not None
+            and DEGREE_RE.search(following) is None
+            and not SEPARATOR_RE.search(line)
+            and DATE_RANGE_RE.search(line) is None
+            and not re.search(r"\b(?:19|20)\d{2}\b", line)
+        )
+
+        if wraps:
+            joined.append(f"{line} | {following}")
+            index += 2
+            continue
+
+        joined.append(line)
+        index += 1
+
+    return joined
 
 
 def _flat_items(section: list[str]) -> list[str]:

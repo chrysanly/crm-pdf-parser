@@ -41,13 +41,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | The only outbound integration: app/Services/Parsing/SidecarResumeParser
-    | talks to the FastAPI service in sidecar/. Set SIDECAR_DRIVER=fake to run
-    | the app (and the test suite) without Python.
+    | talks to the FastAPI service in sidecar/.
+    |
+    | The default is 'sidecar' ON PURPOSE: a missing/typo'd env var must fail
+    | loudly (parse error, retryable) rather than silently serve FakeResumeParser's
+    | sample document as if it came from the upload. 'fake' is opt-in — the test
+    | suite pins it in phpunit.xml.
     |
     */
 
     'sidecar' => [
-        'driver' => env('SIDECAR_DRIVER', 'fake'),
+        'driver' => env('SIDECAR_DRIVER', 'sidecar'),
         'url' => env('SIDECAR_URL', 'http://127.0.0.1:8001'),
         'token' => env('SIDECAR_TOKEN', ''),
         'timeout' => (int) env('SIDECAR_TIMEOUT', 30),

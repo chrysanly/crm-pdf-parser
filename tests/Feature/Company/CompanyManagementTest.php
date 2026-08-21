@@ -7,6 +7,7 @@ namespace Tests\Feature\Company;
 use App\Enums\ResumeTemplate;
 use App\Models\Company;
 use App\Models\User;
+use App\Policies\CompanyPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -182,7 +183,7 @@ final class CompanyManagementTest extends TestCase
         $company = Company::factory()->create();
         $company->delete();
 
-        $policy = new \App\Policies\CompanyPolicy();
+        $policy = new CompanyPolicy;
 
         $this->assertFalse($policy->update($user, $company->fresh()));
         $this->assertFalse($policy->delete($user, $company->fresh()));

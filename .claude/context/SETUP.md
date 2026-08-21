@@ -245,6 +245,12 @@ Rules of the loop:
    types:check` (tsc) and `npm run lint:check` still gate "done".
 6. **Server side, same discipline:** `php artisan pail` for live Laravel exceptions/logs
    instead of guessing from a rendered error page.
+7. **Restart long-lived processes after any change they cache.** A `queue:work` worker boots
+   the app once and holds **all PHP code plus `.env`** — an env change (or a bug fix) is
+   invisible to it until `php artisan queue:restart`. Same for a sidecar/daemon without
+   `--reload`, and `config:cache` freezes `.env` for every process (`config:clear` in dev).
+   **When a result contradicts the code you just wrote, suspect a stale process before the
+   logic** — re-run it in a fresh process to compare.
 
 ---
 

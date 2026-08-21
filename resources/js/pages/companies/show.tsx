@@ -35,13 +35,16 @@ const SECTION_LABELS: Record<string, string> = {
 
 export default function CompanyShow({ company, resumes: page }: Props) {
     const hasWorkInFlight = page.data.some(
-        (resume) => resume.status === 'pending' || resume.status === 'processing',
+        (resume) =>
+            resume.status === 'pending' || resume.status === 'processing',
     );
 
     // Parsing runs on the queue, so poll only while something is actually in
     // flight, and only for the list (partial reload).
     useEffect(() => {
-        if (!hasWorkInFlight) return;
+        if (!hasWorkInFlight) {
+return;
+}
 
         const timer = window.setInterval(() => {
             router.reload({ only: ['resumes'] });
@@ -79,13 +82,19 @@ export default function CompanyShow({ company, resumes: page }: Props) {
                             <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm text-muted-foreground">
                                 {company.contact_email !== null && (
                                     <span className="inline-flex items-center gap-1.5">
-                                        <Mail className="size-3.5" aria-hidden />
+                                        <Mail
+                                            className="size-3.5"
+                                            aria-hidden
+                                        />
                                         {company.contact_email}
                                     </span>
                                 )}
                                 {company.contact_phone !== null && (
                                     <span className="inline-flex items-center gap-1.5">
-                                        <Phone className="size-3.5" aria-hidden />
+                                        <Phone
+                                            className="size-3.5"
+                                            aria-hidden
+                                        />
                                         {company.contact_phone}
                                     </span>
                                 )}
@@ -152,21 +161,30 @@ export default function CompanyShow({ company, resumes: page }: Props) {
                                             >
                                                 <div className="min-w-0 flex-1">
                                                     <Link
-                                                        href={resumes.show(resume.id)}
+                                                        href={resumes.show(
+                                                            resume.id,
+                                                        )}
                                                         className="truncate font-medium hover:underline"
                                                     >
                                                         {resume.candidate_name ??
                                                             resume.original_filename}
                                                     </Link>
                                                     <p className="truncate text-xs text-muted-foreground">
-                                                        {resume.original_filename} ·{' '}
-                                                        {resume.file_size_kb} KB
-                                                        {resume.page_count !== null &&
+                                                        {
+                                                            resume.original_filename
+                                                        }{' '}
+                                                        · {resume.file_size_kb}{' '}
+                                                        KB
+                                                        {resume.page_count !==
+                                                            null &&
                                                             ` · ${resume.page_count} pages`}
                                                     </p>
-                                                    {resume.failure_reason !== null && (
+                                                    {resume.failure_reason !==
+                                                        null && (
                                                         <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                                                            {resume.failure_reason}
+                                                            {
+                                                                resume.failure_reason
+                                                            }
                                                         </p>
                                                     )}
                                                 </div>

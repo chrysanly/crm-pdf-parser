@@ -38,6 +38,24 @@ class EducationEntry(BaseModel):
     end_date: str | None = None
 
 
+class DetailItem(BaseModel):
+    """One row of a "Personal Details" block: "Date of Birth: June 24, 1997"."""
+
+    label: str
+    value: str
+
+
+class SkillGroup(BaseModel):
+    """A labelled skills line: "Languages & Frameworks: PHP, JavaScript, ...".
+
+    `label` is None for resumes that list skills without categories, so a flat
+    list is just a single unlabelled group.
+    """
+
+    label: str | None = None
+    items: list[str] = Field(default_factory=list)
+
+
 class ParsedResume(BaseModel):
     contact: Contact = Field(default_factory=Contact)
     summary: str | None = None

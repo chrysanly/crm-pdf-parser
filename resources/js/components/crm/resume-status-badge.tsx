@@ -36,7 +36,10 @@ export function ResumeStatusBadge({ status, label, color, className }: Props) {
             className={cn('gap-1.5 font-medium', TONE[color], className)}
         >
             <Icon
-                className={cn('size-3.5', status === 'processing' && 'animate-spin')}
+                className={cn(
+                    'size-3.5',
+                    status === 'processing' && 'animate-spin',
+                )}
                 aria-hidden
             />
             {label}

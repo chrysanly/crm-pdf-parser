@@ -69,7 +69,7 @@ final class AtsResumeFormatterTest extends TestCase
             'summary' => "•  Led  the \u{201C}regional\u{201D} team \u{2014} across   three sites",
         ]);
 
-        $document = (new AtsResumeFormatter())->format($parsed, $this->company());
+        $document = (new AtsResumeFormatter)->format($parsed, $this->company());
 
         $this->assertSame(
             'Led the "regional" team - across three sites',
@@ -92,7 +92,7 @@ final class AtsResumeFormatterTest extends TestCase
         $payload['contact']['email'] = null;
         $payload['experience'] = [];
 
-        $document = (new AtsResumeFormatter())->format(
+        $document = (new AtsResumeFormatter)->format(
             ParsedResume::fromArray($payload),
             $this->company(),
         );
@@ -108,7 +108,7 @@ final class AtsResumeFormatterTest extends TestCase
         $payload['certifications'] = [];
         $payload['languages'] = [];
 
-        $document = (new AtsResumeFormatter())->format(
+        $document = (new AtsResumeFormatter)->format(
             ParsedResume::fromArray($payload),
             $this->company(),
         );
@@ -124,7 +124,7 @@ final class AtsResumeFormatterTest extends TestCase
      */
     private function format(Company $company): array
     {
-        return (new AtsResumeFormatter())->format(
+        return (new AtsResumeFormatter)->format(
             ParsedResume::fromArray(FakeResumeParser::payload()),
             $company,
         );

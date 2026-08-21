@@ -45,18 +45,18 @@ export function CompanyForm({ templates, company }: Props) {
     const isEdit = company !== undefined;
 
     const form = useForm<FormValues>({
-            name: company?.name ?? '',
-            industry: company?.industry ?? '',
-            contact_email: company?.contact_email ?? '',
-            contact_phone: company?.contact_phone ?? '',
-            website: company?.website ?? '',
-            brand_color: company?.brand_color ?? '#1F2937',
-            resume_template: company?.resume_template ?? 'classic',
-            section_order: company?.has_custom_section_order
-                ? company.section_order
-                : null,
-            formatting_notes: company?.formatting_notes ?? '',
-            is_active: company?.is_active ?? true,
+        name: company?.name ?? '',
+        industry: company?.industry ?? '',
+        contact_email: company?.contact_email ?? '',
+        contact_phone: company?.contact_phone ?? '',
+        website: company?.website ?? '',
+        brand_color: company?.brand_color ?? '#1F2937',
+        resume_template: company?.resume_template ?? 'classic',
+        section_order: company?.has_custom_section_order
+            ? company.section_order
+            : null,
+        formatting_notes: company?.formatting_notes ?? '',
+        is_active: company?.is_active ?? true,
         logo: null,
         remove_logo: false,
     });
@@ -65,8 +65,13 @@ export function CompanyForm({ templates, company }: Props) {
     const [preview, setPreview] = useState<string | null>(null);
 
     const logoUrl = useMemo(() => {
-        if (preview !== null) return preview;
-        if (data.remove_logo) return null;
+        if (preview !== null) {
+return preview;
+}
+
+        if (data.remove_logo) {
+return null;
+}
 
         return company?.logo_url ?? null;
     }, [preview, data.remove_logo, company?.logo_url]);
@@ -105,10 +110,14 @@ export function CompanyForm({ templates, company }: Props) {
                         <Input
                             id="name"
                             value={data.name}
-                            onChange={(event) => setData('name', event.target.value)}
+                            onChange={(event) =>
+                                setData('name', event.target.value)
+                            }
                             required
                             autoFocus
-                            aria-describedby={errors.name ? 'name-error' : undefined}
+                            aria-describedby={
+                                errors.name ? 'name-error' : undefined
+                            }
                         />
                         <InputError id="name-error" message={errors.name} />
                     </div>
@@ -118,7 +127,9 @@ export function CompanyForm({ templates, company }: Props) {
                         <Input
                             id="industry"
                             value={data.industry}
-                            onChange={(event) => setData('industry', event.target.value)}
+                            onChange={(event) =>
+                                setData('industry', event.target.value)
+                            }
                             placeholder="Logistics"
                         />
                         <InputError message={errors.industry} />
@@ -130,7 +141,9 @@ export function CompanyForm({ templates, company }: Props) {
                             id="website"
                             type="url"
                             value={data.website}
-                            onChange={(event) => setData('website', event.target.value)}
+                            onChange={(event) =>
+                                setData('website', event.target.value)
+                            }
                             placeholder="https://example.ae"
                         />
                         <InputError message={errors.website} />
@@ -218,7 +231,10 @@ export function CompanyForm({ templates, company }: Props) {
                                         htmlFor="logo"
                                         className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
                                     >
-                                        <ImageUp className="size-4" aria-hidden />
+                                        <ImageUp
+                                            className="size-4"
+                                            aria-hidden
+                                        />
                                         Choose image
                                     </Label>
                                     <input
@@ -227,7 +243,9 @@ export function CompanyForm({ templates, company }: Props) {
                                         accept="image/png,image/jpeg,image/webp"
                                         className="sr-only"
                                         onChange={(event) =>
-                                            pickLogo(event.target.files?.[0] ?? null)
+                                            pickLogo(
+                                                event.target.files?.[0] ?? null,
+                                            )
                                         }
                                     />
                                     {logoUrl !== null && (
@@ -242,15 +260,18 @@ export function CompanyForm({ templates, company }: Props) {
                                                 setData('remove_logo', true);
                                             }}
                                         >
-                                            <Trash2 className="size-4" aria-hidden />
+                                            <Trash2
+                                                className="size-4"
+                                                aria-hidden
+                                            />
                                             Remove
                                         </Button>
                                     )}
                                 </div>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                PNG, JPG or WebP · min 64×64 · max 2 MB. Images are
-                                re-encoded on upload.
+                                PNG, JPG or WebP · min 64×64 · max 2 MB. Images
+                                are re-encoded on upload.
                             </p>
                             <InputError message={errors.logo} />
                         </div>
@@ -321,7 +342,9 @@ export function CompanyForm({ templates, company }: Props) {
                         <SectionOrderPicker
                             template={data.resume_template}
                             value={data.section_order}
-                            onChange={(value) => setData('section_order', value)}
+                            onChange={(value) =>
+                                setData('section_order', value)
+                            }
                             error={errors.section_order}
                         />
                     </CardContent>

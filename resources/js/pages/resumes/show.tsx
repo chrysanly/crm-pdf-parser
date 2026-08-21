@@ -29,10 +29,13 @@ const BAND_TONE = {
 } as const;
 
 export default function ResumeShow({ resume, canDownload }: Props) {
-    const inFlight = resume.status === 'pending' || resume.status === 'processing';
+    const inFlight =
+        resume.status === 'pending' || resume.status === 'processing';
 
     useEffect(() => {
-        if (!inFlight) return;
+        if (!inFlight) {
+return;
+}
 
         const timer = window.setInterval(() => {
             router.reload({ only: ['resume'] });
@@ -50,7 +53,8 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                     <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-xl font-semibold">
-                                {resume.candidate_name ?? resume.original_filename}
+                                {resume.candidate_name ??
+                                    resume.original_filename}
                             </h1>
                             <ResumeStatusBadge
                                 status={resume.status}
@@ -73,7 +77,10 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                     <div className="flex flex-wrap items-center gap-2">
                         <Button variant="ghost" asChild>
                             <Link href={companies.show(resume.company.slug)}>
-                                <ArrowLeft className="size-4 rtl:rotate-180" aria-hidden />
+                                <ArrowLeft
+                                    className="size-4 rtl:rotate-180"
+                                    aria-hidden
+                                />
                                 Back
                             </Link>
                         </Button>
@@ -113,8 +120,8 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                                 role="status"
                                 aria-live="polite"
                             >
-                                Parsing {resume.original_filename} — this page updates
-                                itself when the document is ready.
+                                Parsing {resume.original_filename} — this page
+                                updates itself when the document is ready.
                             </p>
                             <Skeleton className="h-6 w-1/3" />
                             <Skeleton className="h-4 w-2/3" />
@@ -178,13 +185,16 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                                     </div>
                                     {resume.ats.score.notes.length === 0 ? (
                                         <p className="text-sm text-muted-foreground">
-                                            No ATS problems found in this resume.
+                                            No ATS problems found in this
+                                            resume.
                                         </p>
                                     ) : (
                                         <ul className="list-disc space-y-1.5 ps-5 text-sm text-muted-foreground">
-                                            {resume.ats.score.notes.map((note) => (
-                                                <li key={note}>{note}</li>
-                                            ))}
+                                            {resume.ats.score.notes.map(
+                                                (note) => (
+                                                    <li key={note}>{note}</li>
+                                                ),
+                                            )}
                                         </ul>
                                     )}
                                 </CardContent>
@@ -197,9 +207,13 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                                     </CardHeader>
                                     <CardContent>
                                         <ul className="list-disc space-y-1.5 ps-5 text-sm text-muted-foreground">
-                                            {resume.ats.warnings.map((warning) => (
-                                                <li key={warning}>{warning}</li>
-                                            ))}
+                                            {resume.ats.warnings.map(
+                                                (warning) => (
+                                                    <li key={warning}>
+                                                        {warning}
+                                                    </li>
+                                                ),
+                                            )}
                                         </ul>
                                     </CardContent>
                                 </Card>

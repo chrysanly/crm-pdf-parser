@@ -6,6 +6,7 @@ namespace App\DTOs;
 
 use App\Http\Requests\Resume\StoreResumeRequest;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Http\UploadedFile;
 
 final readonly class ResumeUploadData
@@ -21,7 +22,7 @@ final readonly class ResumeUploadData
         /** @var UploadedFile $file */
         $file = $request->file('file');
 
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         return new self(

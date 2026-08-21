@@ -98,11 +98,15 @@ final class InstallAuth extends Command
             $this->components->warn("Unknown mode '{$mode}', falling back to picker.");
         }
 
-        return select(
+        // select() is typed int|string because option arrays may be keyed; MODES is
+        // a plain list, so the choice is always one of its string values.
+        $selected = select(
             label: 'Which authentication mode?',
             options: self::MODES,
             default: 'login-register',
         );
+
+        return is_string($selected) ? $selected : self::MODES[$selected];
     }
 
     /**

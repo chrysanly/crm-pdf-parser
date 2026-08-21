@@ -20,10 +20,7 @@ function paginationLabel(label: string): string {
     return label.replace('&laquo;', '‹').replace('&raquo;', '›');
 }
 
-export default function CompaniesIndex({
-    companies: page,
-    filters,
-}: Props) {
+export default function CompaniesIndex({ companies: page, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
 
     function applySearch(event: React.FormEvent) {
@@ -52,8 +49,9 @@ export default function CompaniesIndex({
                     <div>
                         <h1 className="text-xl font-semibold">Companies</h1>
                         <p className="text-sm text-muted-foreground">
-                            {page.meta.total} client{page.meta.total === 1 ? '' : 's'} ·
-                            each one defines its own resume format
+                            {page.meta.total} client
+                            {page.meta.total === 1 ? '' : 's'} · each one
+                            defines its own resume format
                         </p>
                     </div>
 
@@ -65,7 +63,9 @@ export default function CompaniesIndex({
                             />
                             <Input
                                 value={search}
-                                onChange={(event) => setSearch(event.target.value)}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
                                 placeholder="Search name or industry"
                                 aria-label="Search companies"
                                 className="ps-8 sm:w-64"
@@ -118,7 +118,9 @@ export default function CompaniesIndex({
                                     <div className="min-w-0 flex-1 space-y-1">
                                         <div className="flex items-start justify-between gap-2">
                                             <Link
-                                                href={companies.show(company.slug)}
+                                                href={companies.show(
+                                                    company.slug,
+                                                )}
                                                 prefetch
                                                 className="truncate font-medium hover:underline"
                                             >
@@ -131,16 +133,25 @@ export default function CompaniesIndex({
                                             )}
                                         </div>
                                         <p className="truncate text-sm text-muted-foreground">
-                                            {company.industry ?? 'No industry set'}
+                                            {company.industry ??
+                                                'No industry set'}
                                         </p>
                                         <div className="flex flex-wrap items-center gap-2 pt-1">
                                             <Badge variant="outline">
-                                                {company.resume_template_label.split('—')[0].trim()}
+                                                {company.resume_template_label
+                                                    .split('—')[0]
+                                                    .trim()}
                                             </Badge>
                                             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                                <FileText className="size-3.5" aria-hidden />
-                                                {company.resumes_count ?? 0} resume
-                                                {company.resumes_count === 1 ? '' : 's'}
+                                                <FileText
+                                                    className="size-3.5"
+                                                    aria-hidden
+                                                />
+                                                {company.resumes_count ?? 0}{' '}
+                                                resume
+                                                {company.resumes_count === 1
+                                                    ? ''
+                                                    : 's'}
                                             </span>
                                         </div>
                                     </div>

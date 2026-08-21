@@ -118,6 +118,71 @@ def test_alternative_headings_are_recognised():
     assert resume.skills == ["Python", "Go"]
 
 
+# The layout below is the one that produced phantom jobs in production: the role
+# header sits on its own line, its dates on the next, and long bullets wrap.
+WRAPPED_RESUME = """Chris Roma
+chris@example.com | +971529258013
+
+EXPERIENCE
+Senior Full-Stack Developer - Almutakamela Vehicle Testing and Registration - Dubai, UAE
+Nov 2025 - Present
+• Led development of a modular ERP system in Laravel spanning four core modules: Dashboard
+and API App.
+• Implemented role-based middleware for authentication and permission management, securing
+modules by user role.
+Senior PHP Developer - OmniQuest PH (Unilab) - Philippines
+Mar 2025 - Aug 2025
+• Managed a single project comprising four interconnected systems integrated with a central
+data flow and functionality across all platforms.
+
+EDUCATION
+Bachelor of Science in Information Technology
+Our Lady of Lourdes College, Valenzuela City | 2020
+"""
+
+
+def test_dates_on_their_own_line_attach_to_the_header_above():
+    resume = parse(WRAPPED_RESUME)
+
+    assert len(resume.experience) == 2
+
+    first = resume.experience[0]
+    assert first.title == "Senior Full-Stack Developer"
+    assert first.company == "Almutakamela Vehicle Testing and Registration"
+    assert first.location == "Dubai, UAE"
+    assert first.start_date == "2025-11"
+    assert first.is_current is True
+
+    second = resume.experience[1]
+    assert second.title == "Senior PHP Developer"
+    assert second.company == "OmniQuest PH (Unilab)"
+    assert second.start_date == "2025-03"
+    assert second.end_date == "2025-08"
+
+
+def test_wrapped_bullets_are_rejoined_and_never_become_jobs():
+    resume = parse(WRAPPED_RESUME)
+
+    titles = [entry.title for entry in resume.experience]
+    assert "" not in titles
+    assert all(entry.title for entry in resume.experience)
+
+    highlights = resume.experience[0].highlights
+    assert len(highlights) == 2
+    assert highlights[0].endswith("Dashboard and API App.")
+    assert highlights[1].endswith("securing modules by user role.")
+
+
+def test_a_degree_wrapped_onto_two_lines_is_one_qualification():
+    resume = parse(WRAPPED_RESUME)
+
+    assert len(resume.education) == 1
+    assert resume.education[0].degree == "Bachelor of Science in Information Technology"
+    assert resume.education[0].institution is not None
+    assert "Our Lady of Lourdes College" in resume.education[0].institution
+    assert resume.education[0].end_date == "2020"
+
+
 def test_page_count_and_warnings_pass_through():
     resume = parse(RESUME, page_count=3, warnings=("two-column layout",))
 

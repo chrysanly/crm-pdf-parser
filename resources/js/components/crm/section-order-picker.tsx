@@ -48,14 +48,17 @@ export function SectionOrderPicker({
     onChange,
     error,
 }: Props) {
-    const order = value ?? TEMPLATE_DEFAULTS[template] ?? TEMPLATE_DEFAULTS.classic;
+    const order =
+        value ?? TEMPLATE_DEFAULTS[template] ?? TEMPLATE_DEFAULTS.classic;
     const isCustom = value !== null;
 
     function move(index: number, direction: -1 | 1) {
         const next = [...order];
         const target = index + direction;
 
-        if (target < 0 || target >= next.length) return;
+        if (target < 0 || target >= next.length) {
+return;
+}
 
         [next[index], next[target]] = [next[target], next[index]];
         onChange(next);

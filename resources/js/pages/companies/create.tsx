@@ -16,8 +16,9 @@ export default function CompanyCreate({ templates }: Props) {
                 <div>
                     <h1 className="text-xl font-semibold">Add company</h1>
                     <p className="text-sm text-muted-foreground">
-                        The template and section order you choose here decide how every
-                        resume uploaded for this company gets reformatted.
+                        The template and section order you choose here decide
+                        how every resume uploaded for this company gets
+                        reformatted.
                     </p>
                 </div>
 

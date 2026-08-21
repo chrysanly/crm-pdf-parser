@@ -1,102 +1,146 @@
-# PRD.md — Product Requirements (TEMPLATE — fill per project)
+# PRD.md — Product Requirements
 
-> **Stack (resolved by STARTUP.md gate):** Laravel + React (Inertia 2 + React 19 + TypeScript).
+> **Stack (resolved by STARTUP.md gate):** Laravel + React (Inertia + React 19 + TypeScript).
 > Persisted in `.env` (`APP_STACK=react`) and `config/features.php` (`stack`). The first-run
 > gate is satisfied — do not ask the stack question again for this project.
-
-> Read LAST, build FIRST from this. RULES/ARCHITECTURE/SCHEMA/DESIGN say HOW; this file says WHAT and WHY.
-> AI: if a requested feature is not in this file, ask or add it here first — no ghost features.
+>
+> Read LAST, build FIRST from this. RULES/ARCHITECTURE/SCHEMA/DESIGN say HOW; this file says
+> WHAT and WHY. If a requested feature is not here, add it here first — no ghost features.
 > Anything marked `[DECIDE]` blocks related implementation until resolved.
+> **Version-number caveat:** the installed stack is Laravel 13 / Inertia 3 / PHPUnit — see
+> `CLAUDE.md` §2–§3 for the authoritative list and the accepted deviations.
 
 ---
 
 ## 1. Overview
-- **Project name / codename:**
-- **One-liner:** (e.g. "Booking website for a Dubai dental clinic with EN/AR support.")
-- **Client / owner:**
-- **Business goal (measurable):** (e.g. "30 online bookings/month within 60 days of launch.")
-- **Target launch date:**  **Environment domains:** staging: · production:
+- **Project name / codename:** crm-pdf-parser
+- **One-liner:** Internal CRM tool that turns a candidate's PDF resume into an ATS-safe
+  resume rendered in the chosen client company's house format.
+- **Client / owner:** internal (devio)
+- **Business goal (measurable):** cut manual resume re-typing per submission from ~25 minutes
+  to under 5 minutes of review.
+- **Target launch date:** `[DECIDE]`  **Environment domains:** staging: `[DECIDE]` · production: `[DECIDE]`
 
 ## 2. Users & roles
 | Role | Description | Can | Cannot |
 |---|---|---|---|
-| Guest | | browse public pages | |
-| Customer | registered user | | see other users' data |
-| Staff | | | manage settings/users |
-| Admin | | everything in panel | |
+| Guest | not signed in | reach the login screen only | anything else |
+| CRM user (v1) | recruiter / consultant, signs in with **username + password** | manage companies, upload resumes, view any ATS preview, re-parse | download or delete a resume they did not upload |
+| Admin | `[DECIDE]` — no separate role in v1 | — | — |
 
-Authorization matrix drives Policies — every "Can/Cannot" cell becomes a Policy method + test.
+Authorization is Policies + `$this->authorize()`. There is no RBAC package yet
+(`ENABLE_SPATIE=false`), so the `Gate::before` allow-all bypass is active **outside tests** —
+see CLAUDE.md §5. Introducing a real Admin/CRM-user split means turning Spatie on.
 
 ## 3. Scope
 
 ### In scope (v1) — ranked
 | # | Feature | User story | Priority | Acceptance criteria |
 |---|---|---|---|---|
-| 1 | | As a …, I want …, so that … | Must | Given/When/Then, incl. failure case |
-| 2 | | | Must | |
-| 3 | | | Should | |
+| 1 | Company CRUD with logo | As a recruiter I want to register a client company with its logo, brand colour and resume house style, so uploaded resumes come out in that company's format. | Must | Create/edit/archive works; logo validated (png/jpg/webp, ≥64², ≤2 MB) and **re-encoded**; slug unique incl. archived; archive is a soft delete that keeps resumes. |
+| 2 | Resume upload against a company | As a recruiter I pick a company and upload a candidate PDF. | Must | PDF-only (real mime checked), ≤10 MB, stored on the **private** disk with a random filename; parsing queued, page returns immediately; re-uploading the same file for the same company returns the existing record, never a duplicate or a 500. |
+| 3 | Automatic parsing via the Python sidecar | The document is parsed into structured data without manual entry. | Must | `POST /v1/parse` returns contact/summary/experience/education/skills/certifications/languages; two-column layouts reconstructed; failures set status `failed` with a user-safe reason and are retryable. |
+| 4 | ATS preview in the company's format | I see the resume laid out in the company's template and section order, ready to print/save as PDF. | Must | Section order = company override else template default; unknown keys ignored; empty sections omitted; text ATS-normalised; **the preview shows the uploaded file's own data** (`AtsPreviewTest` proves it). |
+| 5 | ATS readiness score | I see what would make this resume fail an ATS. | Should | 0–100 with band + actionable notes (missing email/phone/summary/experience, <5 skills, no quantified achievements). |
+| 6 | Re-parse + original download | I can retry a failed parse and fetch the source PDF. | Should | Re-parse throttled 10/min; download restricted to the uploader. |
 
 ### Explicitly OUT of scope (v1)
-- (List everything cut. AI must refuse scope creep politely and point here.)
+- OCR for scanned resumes (returns a clear 422 instead).
+- LLM-based extraction or rewriting of resume content.
+- Server-side PDF generation — the preview is print-to-PDF (`ENABLE_PDF` module is available
+  if this changes).
+- Candidate-facing access, job/vacancy records, submission tracking, e-mail sending.
+- Bilingual EN/AR + RTL (internal tool; logical CSS properties used so it stays cheap).
+- Bulk / ZIP upload.
 
 ## 4. Domain rules (business logic source of truth)
-> Every rule here becomes an Action/Service + a Pest test. Number them; reference numbers in code comments.
-
-- **BR-1:** (e.g. "A doctor cannot have two bookings overlapping — enforced by UNIQUE(doctor_id, starts_at) + SlotGenerator.")
-- **BR-2:** (e.g. "Orders include 5% UAE VAT, computed server-side, line-item rounded half-up.")
-- **BR-3:** (e.g. "Cancellations allowed ≥24h before start; later = admin only.")
-- **BR-…:**
+- **BR-1:** A company's `slug` is unique across all companies **including archived ones** — generated by `UniqueCompanySlug`, enforced by `UNIQUE(slug)`.
+- **BR-2:** Renaming a company re-slugs it; the old slug is released.
+- **BR-3:** The same file cannot be ingested twice for one company — `UNIQUE(company_id, file_hash)` (sha256). The Action returns the existing resume; a lost race is caught and also returns it. The same file **may** be filed against a different company.
+- **BR-4:** Only an **active** company accepts uploads.
+- **BR-5:** Parsing never runs in a request: `StoreResume` → `ParseResumeJob` (3 tries, 10s/60s backoff) → `ParseResume`.
+- **BR-6:** Section order in force = company `section_order` if set, else `ResumeTemplate::defaultSectionOrder()`. Unknown keys are dropped; sections with no content are omitted.
+- **BR-7:** ATS score starts at 100 and deducts: no email −20, no phone −10, no summary −10, no experience −25, <5 skills −10, no quantified achievement −5. Bands: ≥85 strong, ≥65 fair, else weak.
+- **BR-8:** Only the uploader may download or delete a resume (`ResumePolicy`).
+- **BR-9:** Archiving a company soft-deletes it and sets `is_active = false`; its resumes stay for audit.
+- **BR-10:** Logos are decoded, downscaled to ≤512px and **re-encoded as PNG** — the original container never reaches storage. SVG is refused.
 
 ## 5. Non-duplicate / idempotency map
 | Operation | DB constraint | Idempotency-Key required? | On duplicate |
 |---|---|---|---|
-| Create booking | UNIQUE(doctor_id, starts_at) | Yes | "Slot just taken" 422 |
-| Place order | UNIQUE(order_number); key replay | Yes | replay stored response |
-| Newsletter signup | UNIQUE(email) | No | silent success (no enumeration) |
+| Create company | `UNIQUE(slug)`, `UNIQUE(public_id)` | No | slug suffixed `-2`, `-3`, … |
+| Upload resume | `UNIQUE(company_id, file_hash)` | No — the file hash *is* the key | return the existing resume (no new row, no new job) |
+| Re-parse | — (idempotent by design) | No | `ParseResumeJob` returns early if already parsed |
 
 ## 6. Data & privacy
-- PII collected: (name, phone, email…) — mirror `PII` tags in SCHEMA.md Part B.
-- Retention: (e.g. leads pruned after 12 months; cancelled bookings after 24.)
-- Regulatory notes: (UAE PDPL considerations; payment data never stored — gateway tokens only.)
-- `[DECIDE]` Data residency requirement? (affects hosting region)
+- **PII collected:** company contact email/phone; candidate name, email, phone, location,
+  full employment + education history (in `resumes.parsed_data`) and the source PDF.
+  Mirrored in SCHEMA.md Part B's PII register.
+- Resumes live on a **private** disk and are served only through an authorized route.
+  Parsed contact data is never written to logs (`ParseResume` logs identifiers only).
+- The sidecar is stateless: it holds the PDF in memory for one request and logs page/character
+  counts only.
+- **Retention:** `[DECIDE]` — proposal: purge resumes + stored PDFs 12 months after upload
+  (scheduled prune), companies retained while the client is active.
+- **Regulatory:** UAE PDPL — candidate consent is captured by the recruiter outside this tool
+  `[DECIDE]`. No payment data anywhere.
 
 ## 7. Integrations
 | Service | Purpose | Env keys | Failure behavior |
 |---|---|---|---|
-| e.g. Stripe | payments | STRIPE_* | queue retry ×3 → admin alert |
-| e.g. WhatsApp/SMS | notifications | | degrade to email |
+| Python parsing sidecar (`sidecar/`) | PDF → structured resume | `SIDECAR_DRIVER`, `SIDECAR_URL`, `SIDECAR_TOKEN`, `SIDECAR_TIMEOUT` | 2 retries, then status `failed` + user-safe message + manual re-parse. Never a 500. |
 
-All integrations behind interfaces (RULES §3-D) with a fake for tests.
+Behind `App\Contracts\ResumeParser` with `FakeResumeParser` as the test/offline fake
+(RULES §3-D). **`SIDECAR_DRIVER=fake` returns clearly-labelled SAMPLE data and ignores the
+upload — production must be `sidecar`.**
 
 ## 8. Non-functional requirements
-- **Performance:** p95 read < 200ms, write < 500ms; key pages Lighthouse ≥ 90. Expected load: `[DECIDE]` (peak users/day → informs Octane/replica triggers, ARCHITECTURE §9).
-- **Security:** RULES §5 applies fully; extra project-specific items here (e.g. 2FA for admin).
-- **Availability & ops:** backups nightly; uptime target; error alerting channel.
-- **Languages:** EN / AR `[DECIDE]` — if AR: which content is translated vs mirrored?
-- **Devices:** mobile-first; minimum supported width 360px.
-- **SEO:** SSR pages list: (home, listings, blog…). Sitemap + OG required.
+- **Performance:** upload response < 500ms (parsing is queued); preview read < 200ms p95.
+  Expected load: `[DECIDE]` (est. tens of resumes/day → single queue worker is enough).
+- **Security:** RULES §5 applies. Sidecar bound to localhost/private network with a bearer
+  token; never internet-exposed.
+- **Availability & ops:** one `queue:work` worker required, or resumes stay `pending`.
+  Sidecar must be running or parses fail (retryable). Backups: `[DECIDE]`.
+- **Languages:** EN only (see out-of-scope).
+- **Devices:** desktop-first (recruiter workstation), usable from 360px.
+- **SEO:** none — the whole app is behind auth; `/` redirects to login.
 
 ## 9. Pages & flows inventory
-| Page | Route | Auth | SSR | Key components |
-|---|---|---|---|---|
-| Home | / | guest | yes | Hero, FeaturedX |
-| … | | | | |
+| Page | Route | Auth | Key components |
+|---|---|---|---|
+| Login (front door) | `/` → `/login` | guest | Fortify login by **username** |
+| Dashboard | `/dashboard` | auth+verified | starter placeholder |
+| Companies list | `/companies` | auth+verified | search, company cards, pagination |
+| Add / edit company | `/companies/create`, `/companies/{slug}/edit` | auth+verified | `company-form`, logo input, `section-order-picker` |
+| Company detail | `/companies/{slug}` | auth+verified | `resume-upload-card`, resume list w/ live status polling |
+| ATS preview | `/resumes/{public_id}` | auth+verified | `ats-resume-preview`, readiness score, parser notes, print |
 
-Critical user flows (link or embed step tables — each flow gets a feature test end-to-end):
-1. Flow A: …
-2. Flow B: …
+Critical flows (each covered by a feature test):
+1. Add company with logo → appears in list with its template.
+2. Pick company → upload PDF → queued → status flips to Parsed → preview shows **that file's**
+   data in the company's section order (`AtsPreviewTest`).
+3. Upload the same file again → no duplicate.
+4. Sidecar down → status `failed` with a readable reason → re-parse succeeds.
 
 ## 10. Milestones & definition of done
-| Milestone | Contents | Target date |
+| Milestone | Contents | Status |
 |---|---|---|
-| M1 Skeleton | migrations, models, seeders, auth, layouts | |
-| M2 Core flow | primary user flow end-to-end + tests | |
-| M3 Admin | management surfaces | |
-| M4 Launch | polish, RTL, Lighthouse, deploy, DNS, backups verified | |
+| M1 Skeleton | migrations, models, enums, policies, seeders, routes | **done** |
+| M2 Core flow | company CRUD + upload + sidecar parse + ATS preview end-to-end | **done** |
+| M3 Hardening | retention prune, RBAC (`ENABLE_SPATIE`), MySQL for tests, sidecar deployment | open |
+| M4 Launch | Lighthouse pass, deploy, worker + sidecar supervision, backups | open |
 
-**Project DoD:** all Must features accepted · CI green (Pint, Larastan, ESLint, tsc, Pest) · security checklist (RULES §5) walked · SCHEMA.md Part B current · staging demo approved by client.
+**Project DoD:** all Must features accepted · CI green (Pint, PHPStan, ESLint, tsc, PHPUnit,
+pytest) · RULES §5 walked · SCHEMA.md Part B current · staging demo approved.
 
 ## 11. Open questions / decision log
 | Date | Question | Decision | By |
 |---|---|---|---|
-| | | | |
+| 2026-08-20 | Frontend stack | Laravel + React (Inertia), starter kit already wired | user |
+| 2026-08-20 | Sign-in identifier | **username + password** (not email) | user |
+| 2026-08-20 | Landing page | `/` redirects to login (no marketing page) | user |
+| 2026-08-20 | Parsing approach | deterministic rule-based Python sidecar; no LLM in v1 | assistant (documented) |
+| 2026-08-20 | Test database | SQLite `:memory:` accepted temporarily; MySQL when provisioned | assistant (documented, RULES §7 deviation) |
+| — | Retention period for resumes/PII | `[DECIDE]` | |
+| — | Roles beyond a single CRM user | `[DECIDE]` | |
+| — | Hosting / data residency | `[DECIDE]` | |

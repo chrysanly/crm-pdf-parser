@@ -228,8 +228,8 @@ export default function ManageTwoFactor({
                             />
                             <div className="space-y-2 text-sm">
                                 <p className="max-w-sm text-muted-foreground">
-                                    Scan the QR code with your authenticator app, or
-                                    enter the setup key manually.
+                                    Scan the QR code with your authenticator
+                                    app, or enter the setup key manually.
                                 </p>
                                 <p className="font-mono text-xs break-all select-all">
                                     {setup.secret}
@@ -239,14 +239,19 @@ export default function ManageTwoFactor({
 
                         {setup.recoveryCodes.length > 0 && (
                             <div className="space-y-2">
-                                <p className="text-sm font-medium">Recovery codes</p>
+                                <p className="text-sm font-medium">
+                                    Recovery codes
+                                </p>
                                 <p className="text-sm text-muted-foreground">
-                                    Store these somewhere safe. Each one signs you in
-                                    once if you lose your authenticator.
+                                    Store these somewhere safe. Each one signs
+                                    you in once if you lose your authenticator.
                                 </p>
                                 <ul className="grid gap-1 rounded-md bg-muted p-3 font-mono text-xs sm:grid-cols-2">
                                     {setup.recoveryCodes.map((recoveryCode) => (
-                                        <li key={recoveryCode} className="select-all">
+                                        <li
+                                            key={recoveryCode}
+                                            className="select-all"
+                                        >
                                             {recoveryCode}
                                         </li>
                                     ))}
@@ -277,7 +282,11 @@ export default function ManageTwoFactor({
                                     />
                                 </div>
                                 <Button type="submit" disabled={busy}>
-                                    {busy ? <Spinner /> : <Check className="size-4" aria-hidden />}
+                                    {busy ? (
+                                        <Spinner />
+                                    ) : (
+                                        <Check className="size-4" aria-hidden />
+                                    )}
                                     Confirm
                                 </Button>
                             </form>

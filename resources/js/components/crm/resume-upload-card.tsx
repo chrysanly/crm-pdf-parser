@@ -36,7 +36,9 @@ export function ResumeUploadCard({ company }: Props) {
     }
 
     function accept(file: File | undefined) {
-        if (file === undefined) return;
+        if (file === undefined) {
+return;
+}
 
         setData('file', file);
     }
@@ -49,8 +51,8 @@ export function ResumeUploadCard({ company }: Props) {
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-muted-foreground">
-                        This company is inactive, so new resumes cannot be uploaded.
-                        Reactivate it from{' '}
+                        This company is inactive, so new resumes cannot be
+                        uploaded. Reactivate it from{' '}
                         <span className="font-medium">Edit company</span> first.
                     </p>
                 </CardContent>

@@ -91,7 +91,7 @@ final readonly class AtsResumeFormatter
     }
 
     /**
-     * @return array<string, mixed>|null  null when the section has no content to show
+     * @return array<string, mixed>|null null when the section has no content to show
      */
     private function section(string $key, ParsedResume $resume): ?array
     {
@@ -164,10 +164,21 @@ final readonly class AtsResumeFormatter
         ];
     }
 
+    /**
+     * `__()` is typed as array|string because a translation key can resolve to an
+     * array. These keys are always single strings, so narrow once, here.
+     */
+    private function label(string $key): string
+    {
+        $translated = __($key);
+
+        return is_string($translated) ? $translated : $key;
+    }
+
     private function period(?string $start, ?string $end, bool $isCurrent): string
     {
         $from = $this->humanMonth($start);
-        $to = $isCurrent ? __('Present') : $this->humanMonth($end);
+        $to = $isCurrent ? $this->label('Present') : $this->humanMonth($end);
 
         if ($from === null && $to === null) {
             return '';
@@ -265,7 +276,7 @@ final readonly class AtsResumeFormatter
                 $value >= 65 => 'fair',
                 default => 'weak',
             },
-            'notes' => array_values($notes),
+            'notes' => $notes,
         ];
     }
 }
