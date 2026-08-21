@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Enums;
 
 /**
- * The company's resume house-style. Drives section order and the React template
- * used to render the ATS output (see AtsResumeFormatter).
+ * The rendering engines the ATS preview ships with. A ResumeTemplate row names
+ * one of these as its base layout and adds its own section order on top, so a
+ * new house style is data, not code — a new *layout* is code, and belongs here.
  */
-enum ResumeTemplate: string
+enum TemplateLayout: string
 {
     case Classic = 'classic';
     case Modern = 'modern';
@@ -26,8 +27,8 @@ enum ResumeTemplate: string
     }
 
     /**
-     * Default section order for the template. A company may override it with
-     * its own `section_order` column; the formatter falls back to this.
+     * Default section order for the layout. A template may override it with its
+     * own `section_order` column; the formatter falls back to this.
      *
      * @return list<string>
      */
@@ -44,7 +45,7 @@ enum ResumeTemplate: string
     }
 
     /**
-     * Templates that print a centred name + job-title header and ruled section
+     * Layouts that print a centred name + job-title header and ruled section
      * rules, rather than a left-aligned header.
      */
     public function hasCentredHeader(): bool

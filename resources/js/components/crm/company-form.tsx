@@ -21,14 +21,13 @@ import type {
     EnumOption,
     LogoPlacementValue,
     LogoSizeValue,
-    SectionKey,
-    TemplateOption,
+    ResumeTemplateCard,
 } from '@/types/models';
 import { CompanyLogo } from './company-logo';
-import { SectionOrderPicker } from './section-order-picker';
+import { TemplateSummary } from './template-summary';
 
 type Props = {
-    templates: TemplateOption[];
+    templates: ResumeTemplateCard[];
     logoPlacements: EnumOption<LogoPlacementValue>[];
     logoSizes: EnumOption<LogoSizeValue>[];
     /** Absent = create mode. */
@@ -42,8 +41,8 @@ type FormValues = {
     contact_phone: string;
     website: string;
     brand_color: string;
+    /** Template slug — the house style this company's resumes are rendered in. */
     resume_template: string;
-    section_order: SectionKey[] | null;
     formatting_notes: string;
     is_active: boolean;
     logo: File | null;
@@ -67,10 +66,8 @@ export function CompanyForm({
         contact_phone: company?.contact_phone ?? '',
         website: company?.website ?? '',
         brand_color: company?.brand_color ?? '#1F2937',
-        resume_template: company?.resume_template ?? 'classic',
-        section_order: company?.has_custom_section_order
-            ? company.section_order
-            : null,
+        resume_template:
+            company?.resume_template ?? templates[0]?.slug ?? '',
         formatting_notes: company?.formatting_notes ?? '',
         is_active: company?.is_active ?? true,
         logo: null,
@@ -81,6 +78,14 @@ export function CompanyForm({
 
     const { data, setData, processing, errors, progress } = form;
     const [preview, setPreview] = useState<string | null>(null);
+
+    const selectedTemplate = useMemo(
+        () =>
+            templates.find(
+                (template) => template.slug === data.resume_template,
+            ) ?? null,
+        [templates, data.resume_template],
+    );
 
     const logoUrl = useMemo(() => {
         if (preview !== null) {
@@ -403,21 +408,26 @@ export function CompanyForm({
                             <Label htmlFor="resume_template">Template</Label>
                             <Select
                                 value={data.resume_template}
-                                onValueChange={(value) => {
-                                    setData('resume_template', value);
-                                    setData('section_order', null);
-                                }}
+                                onValueChange={(value) =>
+                                    setData('resume_template', value)
+                                }
                             >
                                 <SelectTrigger id="resume_template">
-                                    <SelectValue />
+                                    <SelectValue
+                                        placeholder={
+                                            templates.length === 0
+                                                ? 'No templates yet'
+                                                : 'Choose a template'
+                                        }
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {templates.map((template) => (
                                         <SelectItem
-                                            key={template.value}
-                                            value={template.value}
+                                            key={template.slug}
+                                            value={template.slug}
                                         >
-                                            {template.label}
+                                            {template.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -425,14 +435,9 @@ export function CompanyForm({
                             <InputError message={errors.resume_template} />
                         </div>
 
-                        <SectionOrderPicker
-                            template={data.resume_template}
-                            value={data.section_order}
-                            onChange={(value) =>
-                                setData('section_order', value)
-                            }
-                            error={errors.section_order}
-                        />
+                        {/* The section order belongs to the template, so it is
+                            shown here read-only — edit it under Templates. */}
+                        <TemplateSummary template={selectedTemplate} />
                     </CardContent>
                 </Card>
 

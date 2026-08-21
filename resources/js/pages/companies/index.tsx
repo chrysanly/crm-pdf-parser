@@ -138,9 +138,7 @@ export default function CompaniesIndex({ companies: page, filters }: Props) {
                                         </p>
                                         <div className="flex flex-wrap items-center gap-2 pt-1">
                                             <Badge variant="outline">
-                                                {company.resume_template_label
-                                                    .split('—')[0]
-                                                    .trim()}
+                                                {company.resume_template_name}
                                             </Badge>
                                             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                                                 <FileText

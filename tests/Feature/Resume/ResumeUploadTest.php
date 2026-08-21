@@ -47,6 +47,27 @@ final class ResumeUploadTest extends TestCase
     }
 
     /**
+     * PRD §4: the document records the house style it was produced with, so
+     * restyling the company later leaves it alone.
+     */
+    public function test_the_upload_freezes_the_company_template_on_the_resume(): void
+    {
+        Queue::fake();
+        Storage::fake('local');
+
+        $company = Company::factory()->create();
+
+        $this->actingAs(User::factory()->create())->post(
+            route('companies.resumes.store', $company),
+            ['file' => $this->pdf()],
+        );
+
+        $resume = Resume::query()->firstOrFail();
+
+        $this->assertSame($company->resume_template_id, $resume->resume_template_id);
+    }
+
+    /**
      * RULES §5.5: re-uploading the same document for the same company is a no-op
      * that returns the existing record — not a duplicate and not a 500.
      */

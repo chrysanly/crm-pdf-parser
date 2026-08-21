@@ -6,8 +6,9 @@ namespace Tests\Feature\Company;
 
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
+use App\Enums\TemplateLayout;
 use App\Models\Company;
+use App\Models\ResumeTemplate;
 use App\Models\User;
 use App\Policies\CompanyPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -48,7 +49,7 @@ final class CompanyManagementTest extends TestCase
 
         $response->assertRedirect(route('companies.show', $company));
         $this->assertSame('nakheel-engineering', $company->slug);
-        $this->assertSame(ResumeTemplate::Modern, $company->resume_template);
+        $this->assertSame('modern-house-style', $company->resumeTemplate->slug);
 
         // RULES §5.7: random filename, and the bitmap is re-encoded to PNG.
         $this->assertNotNull($company->logo_path);
@@ -94,14 +95,27 @@ final class CompanyManagementTest extends TestCase
             ->assertSessionHasErrors('brand_color');
     }
 
-    public function test_an_unknown_section_key_is_rejected(): void
+    public function test_an_unknown_template_is_rejected(): void
     {
         $this->actingAs(User::factory()->create())
             ->post(route('companies.store'), [
                 ...$this->validPayload(),
-                'section_order' => ['summary', 'salary_expectations'],
+                'resume_template' => 'a-template-that-does-not-exist',
             ])
-            ->assertSessionHasErrors('section_order.1');
+            ->assertSessionHasErrors('resume_template');
+    }
+
+    public function test_an_archived_template_cannot_be_assigned(): void
+    {
+        $template = ResumeTemplate::factory()->create(['slug' => 'retired-style']);
+        $template->delete();
+
+        $this->actingAs(User::factory()->create())
+            ->post(route('companies.store'), [
+                ...$this->validPayload(),
+                'resume_template' => 'retired-style',
+            ])
+            ->assertSessionHasErrors('resume_template');
     }
 
     public function test_renaming_a_company_re_slugs_it_and_replaces_the_logo(): void
@@ -192,6 +206,23 @@ final class CompanyManagementTest extends TestCase
     }
 
     /**
+     * The house style the payload assigns — created on demand so each test owns
+     * its own template row.
+     */
+    private function template(): ResumeTemplate
+    {
+        return ResumeTemplate::query()->firstOrCreate(
+            ['slug' => 'modern-house-style'],
+            [
+                'name' => 'Modern house style',
+                'layout' => TemplateLayout::Modern,
+                'section_order' => null,
+                'is_active' => true,
+            ],
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function validPayload(): array
@@ -203,7 +234,7 @@ final class CompanyManagementTest extends TestCase
             'contact_phone' => '+971 24 447788',
             'website' => 'https://nakheeleng.example.ae',
             'brand_color' => '#1d4ed8',
-            'resume_template' => ResumeTemplate::Modern->value,
+            'resume_template' => $this->template()->slug,
             'logo_placement' => LogoPlacement::Right->value,
             'logo_size' => LogoSize::Medium->value,
             'formatting_notes' => 'Certifications before education.',

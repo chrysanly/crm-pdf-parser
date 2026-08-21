@@ -30,6 +30,9 @@ final class ResumeCardResource extends JsonResource
             'failure_reason' => $this->failure_reason,
             'uploaded_at' => $this->created_at?->toIso8601String(),
             'parsed_at' => $this->parsed_at?->toIso8601String(),
+            // Present on cross-company lists (the dashboard); absent on a
+            // company's own page, where it would just repeat the heading.
+            'company' => new CompanyCardResource($this->whenLoaded('company')),
         ];
     }
 }

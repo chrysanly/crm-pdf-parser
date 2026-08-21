@@ -52,6 +52,9 @@ final readonly class StoreResume
         try {
             $resume = $this->db->transaction(fn (): Resume => Resume::create([
                 'company_id' => $data->company->id,
+                // Frozen here: restyling the company later must not restyle
+                // documents already produced (PRD §4).
+                'resume_template_id' => $data->company->resume_template_id,
                 'uploaded_by' => $data->uploadedBy,
                 'original_filename' => $data->file->getClientOriginalName(),
                 'stored_path' => $storedPath,

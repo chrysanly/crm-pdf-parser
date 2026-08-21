@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Enums\ResumeTemplate;
+use App\Enums\TemplateLayout;
 use App\Models\Company;
+use App\Models\ResumeTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -35,8 +36,7 @@ final class CompanyFactory extends Factory
             'website' => 'https://'.fake()->domainName(),
             'logo_path' => null,
             'brand_color' => fake()->randomElement(['#1F2937', '#0F766E', '#7C2D12', '#1D4ED8', '#4C1D95']),
-            'resume_template' => fake()->randomElement(ResumeTemplate::cases()),
-            'section_order' => null,
+            'resume_template_id' => ResumeTemplate::factory(),
             'formatting_notes' => null,
             'is_active' => true,
         ];
@@ -49,6 +49,17 @@ final class CompanyFactory extends Factory
 
     public function template(ResumeTemplate $template): self
     {
-        return $this->state(fn (): array => ['resume_template' => $template]);
+        return $this->state(fn (): array => ['resume_template_id' => $template->id]);
+    }
+
+    /**
+     * A company whose template uses the given layout — the common need in tests
+     * that assert on how a layout renders.
+     */
+    public function layout(TemplateLayout $layout): self
+    {
+        return $this->state(fn (): array => [
+            'resume_template_id' => ResumeTemplate::factory()->layout($layout),
+        ]);
     }
 }

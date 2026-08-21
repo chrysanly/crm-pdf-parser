@@ -60,6 +60,9 @@ class ParsedResume(BaseModel):
     contact: Contact = Field(default_factory=Contact)
     #: Job title printed under the name, e.g. "Senior Full-Stack Developer".
     headline: str | None = None
+    #: The order this document printed its sections in, headed sections with
+    #: content only. Laravel reads it to build a template from a sample resume.
+    section_order: list[str] = Field(default_factory=list)
     #: "Personal Details" rows the contact fields don't cover (DOB, civil status…).
     details: list[DetailItem] = Field(default_factory=list)
     summary: str | None = None

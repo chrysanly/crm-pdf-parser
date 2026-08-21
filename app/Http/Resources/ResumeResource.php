@@ -37,6 +37,9 @@ final class ResumeResource extends JsonResource
             'uploaded_at' => $this->created_at?->toIso8601String(),
             'parsed_at' => $this->parsed_at?->toIso8601String(),
             'company' => new CompanyCardResource($this->whenLoaded('company')),
+            // The style frozen at upload: name to show, slug to switch with.
+            'resume_template' => $this->resumeTemplate?->name,
+            'resume_template_slug' => $this->resumeTemplate?->slug,
             'ats' => $this->atsDocument(),
         ];
     }
@@ -55,6 +58,7 @@ final class ResumeResource extends JsonResource
         return app(AtsResumeFormatter::class)->format(
             ParsedResume::fromArray($parsed),
             $this->company,
+            $this->resumeTemplate,
         );
     }
 }

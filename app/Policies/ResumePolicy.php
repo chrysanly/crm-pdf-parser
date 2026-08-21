@@ -38,6 +38,15 @@ final class ResumePolicy
         return $resume->status !== ResumeStatus::Processing;
     }
 
+    /**
+     * Re-styling is presentation only, so anyone who can see the preview may do
+     * it — but not while the document is mid-parse.
+     */
+    public function changeTemplate(User $user, Resume $resume): bool
+    {
+        return $resume->status !== ResumeStatus::Processing;
+    }
+
     public function delete(User $user, Resume $resume): bool
     {
         return $resume->uploaded_by === $user->id;

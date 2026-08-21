@@ -2,24 +2,27 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     Download,
-    Printer,
+    FileDown,
     RefreshCw,
     TriangleAlert,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AtsResumePreview } from '@/components/crm/ats-resume-preview';
 import { ResumeStatusBadge } from '@/components/crm/resume-status-badge';
+import { ResumeTemplateSwitcher } from '@/components/crm/resume-template-switcher';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import companies from '@/routes/companies';
 import resumes from '@/routes/resumes';
-import type { Resume } from '@/types/models';
+import type { Resume, ResumeTemplateCard } from '@/types/models';
 
 type Props = {
     resume: Resume;
     canDownload: boolean;
+    templates: ResumeTemplateCard[];
 };
 
 const BAND_TONE = {
@@ -28,9 +31,15 @@ const BAND_TONE = {
     weak: 'text-red-600 dark:text-red-400',
 } as const;
 
-export default function ResumeShow({ resume, canDownload }: Props) {
+export default function ResumeShow({
+    resume,
+    canDownload,
+    templates,
+}: Props) {
     const inFlight =
         resume.status === 'pending' || resume.status === 'processing';
+    const [exporting, setExporting] = useState(false);
+    const [retrying, setRetrying] = useState(false);
 
     useEffect(() => {
         if (!inFlight) {
@@ -70,7 +79,8 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                             >
                                 {resume.company.name}
                             </Link>{' '}
-                            · {resume.company.resume_template_label}
+                            · {resume.resume_template ??
+                                resume.company.resume_template_name}
                         </p>
                     </div>
 
@@ -92,20 +102,43 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                                 </a>
                             </Button>
                         )}
-                        <Button
-                            variant="outline"
-                            onClick={() =>
-                                router.post(resumes.reparse.url(resume.id))
-                            }
-                            disabled={resume.status === 'processing'}
-                        >
-                            <RefreshCw className="size-4" aria-hidden />
-                            Re-parse
-                        </Button>
                         {resume.ats !== null && (
-                            <Button onClick={() => window.print()}>
-                                <Printer className="size-4" aria-hidden />
-                                Print / save PDF
+                            // A real download, not window.print(): the server
+                            // renders the ATS document — and only that — through
+                            // dompdf, so the text stays selectable text.
+                            <Button asChild aria-busy={exporting}>
+                                {/* A plain download has no completion event, so
+                                    the button holds its busy state briefly and
+                                    blocks pointer events instead of using
+                                    `disabled`, which an anchor ignores. */}
+                                <a
+                                    href={resumes.pdf.url(resume.id)}
+                                    aria-disabled={exporting}
+                                    className={
+                                        exporting
+                                            ? 'pointer-events-none opacity-80'
+                                            : undefined
+                                    }
+                                    onClick={() => {
+                                        setExporting(true);
+                                        window.setTimeout(
+                                            () => setExporting(false),
+                                            2500,
+                                        );
+                                    }}
+                                >
+                                    {exporting ? (
+                                        <Spinner />
+                                    ) : (
+                                        <FileDown
+                                            className="size-4"
+                                            aria-hidden
+                                        />
+                                    )}
+                                    {exporting
+                                        ? 'Preparing PDF…'
+                                        : 'Download PDF'}
+                                </a>
                             </Button>
                         )}
                     </div>
@@ -149,12 +182,26 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() =>
-                                    router.post(resumes.reparse.url(resume.id))
-                                }
+                                disabled={retrying || inFlight}
+                                aria-busy={retrying}
+                                onClick={() => {
+                                    setRetrying(true);
+                                    router.post(
+                                        resumes.reparse.url(resume.id),
+                                        {},
+                                        {
+                                            preserveScroll: true,
+                                            onFinish: () => setRetrying(false),
+                                        },
+                                    );
+                                }}
                             >
-                                <RefreshCw className="size-4" aria-hidden />
-                                Try again
+                                {retrying ? (
+                                    <Spinner />
+                                ) : (
+                                    <RefreshCw className="size-4" aria-hidden />
+                                )}
+                                {retrying ? 'Queueing…' : 'Try again'}
                             </Button>
                         </CardContent>
                     </Card>
@@ -168,6 +215,12 @@ export default function ResumeShow({ resume, canDownload }: Props) {
                         />
 
                         <aside className="space-y-6 print:hidden">
+                            <ResumeTemplateSwitcher
+                                resume={resume}
+                                templates={templates}
+                                busy={inFlight}
+                            />
+
                             <Card>
                                 <CardHeader>
                                     <CardTitle>ATS readiness</CardTitle>

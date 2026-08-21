@@ -2,11 +2,12 @@ import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import type { SectionKey } from '@/types/models';
+import type { SectionKey, TemplateLayoutValue } from '@/types/models';
 
 type Props = {
-    template: string;
-    /** null = follow the template's default order. */
+    /** The template's base layout — it decides the default order. */
+    layout: TemplateLayoutValue;
+    /** null = follow the layout's default order. */
     value: SectionKey[] | null;
     onChange: (value: SectionKey[] | null) => void;
     error?: string;
@@ -22,8 +23,8 @@ const LABELS: Record<SectionKey, string> = {
     languages: 'Languages',
 };
 
-/** Mirrors ResumeTemplate::defaultSectionOrder() in PHP. */
-const TEMPLATE_DEFAULTS: Record<string, SectionKey[]> = {
+/** Mirrors TemplateLayout::defaultSectionOrder() in PHP. */
+const LAYOUT_DEFAULTS: Record<TemplateLayoutValue, SectionKey[]> = {
     classic: [
         'summary',
         'experience',
@@ -53,13 +54,12 @@ const TEMPLATE_DEFAULTS: Record<string, SectionKey[]> = {
 };
 
 export function SectionOrderPicker({
-    template,
+    layout,
     value,
     onChange,
     error,
 }: Props) {
-    const order =
-        value ?? TEMPLATE_DEFAULTS[template] ?? TEMPLATE_DEFAULTS.classic;
+    const order = value ?? LAYOUT_DEFAULTS[layout] ?? LAYOUT_DEFAULTS.classic;
     const isCustom = value !== null;
 
     function move(index: number, direction: -1 | 1) {
@@ -86,7 +86,7 @@ export function SectionOrderPicker({
                         onClick={() => onChange(null)}
                     >
                         <RotateCcw className="size-3.5" aria-hidden />
-                        Use template default
+                        Use layout default
                     </Button>
                 )}
             </div>
@@ -129,8 +129,8 @@ export function SectionOrderPicker({
 
             <p className="text-xs text-muted-foreground">
                 {isCustom
-                    ? 'Custom order — overrides the template default.'
-                    : 'Following the template default. Reorder to customise.'}
+                    ? 'Custom order — overrides the layout default.'
+                    : 'Following the layout default. Reorder to customise.'}
             </p>
             <InputError message={error} />
         </div>

@@ -6,7 +6,6 @@ namespace App\Models;
 
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -33,8 +33,7 @@ use Illuminate\Support\Carbon;
  * @property LogoPlacement $logo_placement
  * @property LogoSize $logo_size
  * @property string $brand_color
- * @property ResumeTemplate $resume_template
- * @property list<string>|null $section_order
+ * @property int $resume_template_id
  * @property string|null $formatting_notes
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -42,6 +41,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read Collection<int, Resume> $resumes
  * @property-read int|null $resumes_count
+ * @property-read ResumeTemplate $resumeTemplate
  */
 #[Fillable([
     'name',
@@ -54,8 +54,7 @@ use Illuminate\Support\Carbon;
     'logo_placement',
     'logo_size',
     'brand_color',
-    'resume_template',
-    'section_order',
+    'resume_template_id',
     'formatting_notes',
     'is_active',
 ])]
@@ -88,12 +87,18 @@ class Company extends Model
     protected function casts(): array
     {
         return [
-            'resume_template' => ResumeTemplate::class,
             'logo_placement' => LogoPlacement::class,
             'logo_size' => LogoSize::class,
-            'section_order' => 'array',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<ResumeTemplate, $this>
+     */
+    public function resumeTemplate(): BelongsTo
+    {
+        return $this->belongsTo(ResumeTemplate::class);
     }
 
     /**
@@ -132,16 +137,12 @@ class Company extends Model
     }
 
     /**
-     * Section order actually in force: the company override, else the template default.
+     * Section order actually in force, i.e. the assigned template's.
      *
      * @return list<string>
      */
     public function effectiveSectionOrder(): array
     {
-        $override = $this->section_order;
-
-        return $override === null || $override === []
-            ? $this->resume_template->defaultSectionOrder()
-            : $override;
+        return $this->resumeTemplate->effectiveSectionOrder();
     }
 }

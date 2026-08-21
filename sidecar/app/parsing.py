@@ -27,8 +27,16 @@ SECTION_ALIASES: dict[str, tuple[str, ...]] = {
         "experience", "work experience", "professional experience", "employment",
         "employment history", "career history", "work history",
     ),
-    "education": ("education", "academic background", "qualifications", "academics"),
-    "skills": ("skills", "core skills", "technical skills", "key skills", "competencies", "expertise"),
+    "education": (
+        "education", "education and training", "education training",
+        "educational background", "academic background", "academic qualifications",
+        "qualifications", "academics",
+    ),
+    "skills": (
+        "skills", "core skills", "technical skills", "key skills", "personal skills",
+        "soft skills", "it skills", "computer skills", "areas of expertise",
+        "competencies", "core competencies", "expertise",
+    ),
     "certifications": ("certifications", "certificates", "licenses", "training", "courses"),
     "languages": ("languages", "language skills"),
     "details": ("personal details", "personal information", "personal info", "details", "contact", "contact details"),
@@ -42,7 +50,14 @@ EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 PHONE_RE = re.compile(r"(?:\+|00)\s?\d[\d\s().-]{7,18}\d")
 LINKEDIN_RE = re.compile(r"(?:https?://)?(?:[\w.]*\.)?linkedin\.com/in/[\w-]+", re.I)
 URL_RE = re.compile(r"https?://[^\s,;]+", re.I)
-BULLET_RE = re.compile(r"^\s*(?:[-*•▪●·‣⁃]|\d+[.)])\s+")
+#: Every glyph a resume uses as a list marker. Word offers arrows and ticks as
+#: readily as round bullets, and an unrecognised marker is far worse than a
+#: missed one: the line stops being a bullet and gets glued onto the text above.
+BULLET_CHARS = "-*•▪▫●○◦·‣⁃∙⦁➢➣➤➔➜⇒→▶►»◆◇■□✓✔✦✧❖★☆"
+BULLET_RE = re.compile(rf"^\s*(?:[{re.escape(BULLET_CHARS)}]|\d+[.)])\s+")
+
+#: The same markers when they appear *inside* a line, separating list items.
+INLINE_MARKER_RE = re.compile(rf"\s*[,;|{re.escape(BULLET_CHARS[2:])}]\s*")
 
 MONTHS = {
     "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
@@ -61,8 +76,21 @@ DATE_RANGE_RE = re.compile(
 SEPARATOR_RE = re.compile(r"\s+(?:\||,|-|–|—|at|@)\s+", re.I)
 
 
+#: Closing boilerplate that belongs to no section — it lands in whichever one
+#: happens to be last (usually Languages) and reads as data.
+BOILERPLATE_RE = re.compile(
+    r"^\W*(?:references?\b.*(?:request|available)|available upon request|"
+    r"page \d+(?: of \d+)?|curriculum vitae|résumé|resume)\W*$",
+    re.I,
+)
+
+
 def parse(text: str, page_count: int | None = None, warnings: tuple[str, ...] = ()) -> ParsedResume:
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not BOILERPLATE_RE.match(line.strip())
+    ]
     collected = list(warnings)
 
     sections = _segment(lines)
@@ -81,6 +109,16 @@ def parse(text: str, page_count: int | None = None, warnings: tuple[str, ...] = 
     certifications = _flat_items(sections.get("certifications", []))
     languages = _flat_items(sections.get("languages", [])) or _languages_from(details)
 
+    section_order = _printed_order(sections, {
+        "details": details,
+        "summary": summary,
+        "experience": experience,
+        "education": education,
+        "skills": skill_groups,
+        "certifications": certifications,
+        "languages": languages,
+    })
+
     if not sections.get("experience"):
         collected.append("No experience heading was found; work history may be incomplete.")
     if contact.email is None:
@@ -89,6 +127,7 @@ def parse(text: str, page_count: int | None = None, warnings: tuple[str, ...] = 
     return ParsedResume(
         contact=contact,
         headline=headline,
+        section_order=section_order,
         details=details,
         summary=summary,
         experience=experience,
@@ -186,13 +225,17 @@ def _languages_from(details: list[DetailItem]) -> list[str]:
 def _skill_groups(section: list[str]) -> list[SkillGroup]:
     """Keep skill categories as printed: "Databases: MySQL, MariaDB, ...".
 
-    Lines without a label are wrapped continuations and are glued back on before
-    the list is split, so an item broken across a line break ("Angular" / "7-10")
-    survives as one skill. A resume with no categories yields one unlabelled group.
+    Unlabelled lines without a bullet are wrapped continuations and are glued
+    back on before the list is split, so an item broken across a line break
+    ("Angular" / "7-10") survives as one skill. A *bulleted* line is one skill in
+    its own right — gluing those together produced a single 400-character
+    "skill" that was then discarded as too long. A resume with no categories
+    yields one unlabelled group.
     """
     blocks: list[tuple[str | None, str]] = []
 
     for raw in section:
+        bulleted = bool(BULLET_RE.match(raw))
         line = BULLET_RE.sub("", raw).strip()
 
         if not line:
@@ -202,6 +245,16 @@ def _skill_groups(section: list[str]) -> list[SkillGroup]:
 
         if match is not None and match.group("value").strip():
             blocks.append((match.group("label").strip(), match.group("value").strip()))
+            continue
+
+        if bulleted:
+            # Join with a separator `_split_items` splits on, so the bullets stay
+            # distinct skills inside one unlabelled group.
+            if blocks and blocks[-1][0] is None:
+                label, text = blocks[-1]
+                blocks[-1] = (label, f"{text} • {line}")
+            else:
+                blocks.append((None, line))
             continue
 
         if blocks:
@@ -222,7 +275,7 @@ def _skill_groups(section: list[str]) -> list[SkillGroup]:
 def _split_items(value: str) -> list[str]:
     items = []
 
-    for part in re.split(r"\s*[,;|•]\s*", value):
+    for part in INLINE_MARKER_RE.split(value):
         item = part.strip(" .-")
 
         if item and len(item) <= 80:
@@ -235,6 +288,8 @@ def _segment(lines: list[str]) -> dict[str, list[str]]:
     """Split the document into sections keyed by canonical name.
 
     Everything before the first recognised heading is `_header` (name + contact).
+    Insertion order is the order the headings were printed in, which is what
+    `_printed_order` reads back.
     """
     sections: dict[str, list[str]] = {"_header": []}
     current = "_header"
@@ -250,6 +305,21 @@ def _segment(lines: list[str]) -> dict[str, list[str]]:
         sections.setdefault(current, []).append(line)
 
     return sections
+
+
+def _printed_order(sections: dict[str, list[str]], content: dict[str, object]) -> list[str]:
+    """The order this document printed its sections in.
+
+    Only sections that were both headed *and* yielded content count, so a stray
+    heading over an empty block does not end up in a template built from this
+    document. `sections` preserves heading order (Python dicts keep insertion
+    order), so the result is the document's own reading order.
+    """
+    return [
+        key
+        for key in sections
+        if key != "_header" and content.get(key)
+    ]
 
 
 def _heading_key(line: str) -> str | None:
@@ -311,7 +381,12 @@ def _name(header: list[str]) -> str | None:
 
 LOCATION_HINTS = (
     "dubai", "abu dhabi", "sharjah", "ajman", "uae", "united arab emirates",
-    "riyadh", "doha", "kuwait", "cairo", "amman", "beirut", "london", "remote",
+    "riyadh", "jeddah", "doha", "manama", "muscat", "kuwait", "cairo", "giza",
+    "alexandria", "amman", "beirut", "istanbul", "london", "remote",
+    # Many resumes print the country alone under the name.
+    "egypt", "jordan", "lebanon", "syria", "iraq", "saudi arabia", "ksa",
+    "qatar", "bahrain", "oman", "morocco", "tunisia", "sudan", "yemen",
+    "india", "pakistan", "philippines", "bangladesh", "sri lanka", "nepal",
 )
 
 
@@ -342,7 +417,24 @@ def _summary(section: list[str], header: list[str]) -> str | None:
 TRAILING_JUNK = " |,-–—•\t"
 
 
-def _classify(line: str, previous: str | None) -> str:
+def _opens_role(line: str | None) -> bool:
+    """Does `line` read like the second line of a role block?
+
+    Either its date range ("June 2023 - Present") or its employer line
+    ("McDonald’s - Cairo, Egypt"). Used as one line of lookahead: it is the only
+    way to tell a new role title from the tail of the bullet above it, because
+    both are short Title-Case text.
+    """
+    if not line or BULLET_RE.match(line):
+        return False
+
+    if DATE_RANGE_RE.search(line):
+        return True
+
+    return bool(SEPARATOR_RE.search(line)) and len(line.split()) <= 10
+
+
+def _classify(line: str, previous: str | None, following: str | None = None) -> str:
     """Label one line of the experience section.
 
     Resumes wrap: a role header, its date range, and its achievement bullets are
@@ -351,6 +443,18 @@ def _classify(line: str, previous: str | None) -> str:
     line as a header invents a phantom job.
     """
     if BULLET_RE.match(line):
+        # Some resumes bullet the role header itself ("➢ Accountant - Acme, Jun
+        # 2024 to present") and indent the achievements beneath it. A dated,
+        # unpunctuated marker line is that header, not an achievement.
+        marked = BULLET_RE.sub("", line).strip()
+
+        if (
+            DATE_RANGE_RE.search(marked)
+            and len(marked.split()) <= 20
+            and not marked.endswith(".")
+        ):
+            return "header_dated"
+
         return "bullet"
 
     match = DATE_RANGE_RE.search(line)
@@ -369,12 +473,56 @@ def _classify(line: str, previous: str | None) -> str:
     if SEPARATOR_RE.search(line):
         return "header"
 
+    # A short line whose next line opens a role block is a new role title even
+    # when it follows bullets — that is the "Title / Employer / Dates" stack.
+    if len(line.split()) <= 10 and _opens_role(following):
+        return "header"
+
     # Otherwise a line following bullets/wrapped text is the tail of that text,
     # while a short Title-Case line on its own is a header.
     if previous in {"bullet", "continuation"}:
         return "continuation"
 
     return "header" if len(line.split()) <= 8 else "continuation"
+
+
+def _awaiting_employer(entry: dict | None) -> bool:
+    """True when the entry has a title and is still missing everything else."""
+    return (
+        entry is not None
+        and bool(entry["title"])
+        and entry["company"] is None
+        and entry["start_date"] is None
+        and not entry["highlights"]
+    )
+
+
+def _awaiting_title(entry: dict | None) -> bool:
+    """True when the entry so far is an employer-and-dates line with no role yet.
+
+    The mirror image of `_awaiting_employer`: some resumes print
+    "Acme Ltd, Dubai   Oct 2024 - Present" first and the job title on the line
+    below it.
+    """
+    return (
+        entry is not None
+        and bool(entry["title"])
+        and entry["company"] is None
+        and entry["start_date"] is not None
+        and not entry["highlights"]
+    )
+
+
+def _split_employer(line: str) -> tuple[str | None, str | None]:
+    """"Dunkin’ Donuts - Cairo, Egypt" -> ("Dunkin’ Donuts", "Cairo, Egypt")."""
+    parts = [part.strip() for part in SEPARATOR_RE.split(line) if part.strip()]
+
+    if not parts:
+        return None, None
+
+    location = parts.pop() if len(parts) > 1 and LOCATION_TAIL_RE.match(parts[-1]) else None
+
+    return (" - ".join(parts) or None), location
 
 
 def _blank_entry() -> dict:
@@ -401,20 +549,84 @@ def _apply_dates(entry: dict, match: re.Match[str], warnings: list[str]) -> None
     entry["is_current"] = is_current
 
 
+#: A line broken off mid-phrase: "... Vehicle Testing & Registration-".
+DANGLING_TAIL_RE = re.compile(r"[-–—,&/|]$")
+
+
+def _join_wrapped_headers(section: list[str]) -> list[str]:
+    """Rejoin a role header that ran onto a second line.
+
+    "➢ General Accountant – Al Mutakamela Vehicle Testing & Registration-" /
+    "Dubai, (Semi- Government Entity- RTA), Jun 2024 to present" is one header.
+    Left split, the first half looks like an achievement and the second half
+    invents a job called "Dubai".
+    """
+    joined: list[str] = []
+    index = 0
+
+    while index < len(section):
+        line = section[index]
+        following = section[index + 1] if index + 1 < len(section) else None
+
+        wraps = (
+            following is not None
+            and DANGLING_TAIL_RE.search(line) is not None
+            and not BULLET_RE.match(following)
+            and DATE_RANGE_RE.search(following) is not None
+            and DATE_RANGE_RE.search(line) is None
+        )
+
+        if wraps:
+            joined.append(f"{line} {following}")
+            index += 2
+            continue
+
+        joined.append(line)
+        index += 1
+
+    return joined
+
+
 def _experience(section: list[str], warnings: list[str]) -> list[ExperienceEntry]:
     entries: list[ExperienceEntry] = []
     current: dict | None = None
     previous: str | None = None
+    section = _join_wrapped_headers(section)
 
-    for line in section:
-        kind = _classify(line, previous)
+    for index, line in enumerate(section):
+        following = section[index + 1] if index + 1 < len(section) else None
+        kind = _classify(line, previous, following)
         previous = kind
 
         if kind in {"header", "header_dated"}:
+            # A header can carry a list marker of its own; it is decoration.
+            line = BULLET_RE.sub("", line).strip()
+            match = DATE_RANGE_RE.search(line) if kind == "header_dated" else None
+
+            # "Cashier" / "Dunkin' Donuts - Cairo, Egypt" / "June 2023 - Present":
+            # the employer sits on its own line under the title, so it completes
+            # the role above instead of starting a phantom one.
+            if _awaiting_employer(current):
+                remainder = DATE_RANGE_RE.sub("", line).strip(TRAILING_JUNK) if match else line
+                company, location = _split_employer(remainder)
+                current["company"] = company
+                current["location"] = location
+
+                if match is not None:
+                    _apply_dates(current, match, warnings)
+
+                continue
+
+            # The reverse layout: the employer and its dates came first, so this
+            # line is that role's title rather than a second job.
+            if match is None and _awaiting_title(current):
+                current["company"] = current["title"]
+                current["title"] = line
+                continue
+
             if current is not None:
                 entries.append(_finish_experience(current))
 
-            match = DATE_RANGE_RE.search(line) if kind == "header_dated" else None
             remainder = DATE_RANGE_RE.sub("", line).strip(TRAILING_JUNK) if match else line
 
             title, company, location = _split_header(remainder)
@@ -527,10 +739,29 @@ DEGREE_RE = re.compile(
 )
 
 
+#: "Graduated: May 2022", "Expected 2026" — a date for the qualification above,
+#: not a qualification of its own.
+GRADUATION_RE = re.compile(
+    r"^\s*(?:graduated|graduation|expected|completion|completed|class of)\b\s*:?\s*", re.I
+)
+
+#: "Major: Financial and Banking Sciences" — a field of study. The schema has no
+#: field for it, so it stays on the degree line rather than posing as a school.
+FIELD_LABEL_RE = re.compile(
+    r"^(?:major|majors|minor|field|field of study|specialisation|specialization|concentration|focus|track)\b\s*:",
+    re.I,
+)
+
+
 def _education(section: list[str]) -> list[EducationEntry]:
     entries: list[EducationEntry] = []
 
     for line in _join_degree_wraps(section):
+        if GRADUATION_RE.match(line) and DEGREE_RE.search(line) is None:
+            if entries:
+                entries[-1] = _dated(entries[-1], GRADUATION_RE.sub("", line).strip())
+            continue
+
         match = DATE_RANGE_RE.search(line)
         remainder = DATE_RANGE_RE.sub("", line) if match else line
         years = re.findall(r"\b(?:19|20)\d{2}\b", line)
@@ -538,6 +769,12 @@ def _education(section: list[str]) -> list[EducationEntry]:
 
         if not degree:
             continue
+
+        # "Bachelor of Business — Major: Finance": the second half is the field of
+        # study, not the school, and the schema has nowhere else to put it.
+        if institution is not None and FIELD_LABEL_RE.match(institution):
+            degree = f"{degree} — {institution}"
+            institution = None
 
         if match:
             start = _iso_month(match.group("start"))
@@ -560,6 +797,11 @@ def _education(section: list[str]) -> list[EducationEntry]:
         )
 
     return entries
+
+
+def _dated(entry: EducationEntry, raw: str) -> EducationEntry:
+    """Re-stamp an education entry with a graduation date printed on its own line."""
+    return entry.model_copy(update={"end_date": _iso_month(raw) or entry.end_date})
 
 
 def _join_degree_wraps(section: list[str]) -> list[str]:
@@ -606,7 +848,7 @@ def _flat_items(section: list[str]) -> list[str]:
         if not cleaned:
             continue
 
-        parts = re.split(r"\s*[,;|•]\s*", cleaned) if re.search(r"[,;|•]", cleaned) else [cleaned]
+        parts = INLINE_MARKER_RE.split(cleaned) if INLINE_MARKER_RE.search(cleaned) else [cleaned]
 
         for part in parts:
             value = part.strip(" .-")

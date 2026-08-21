@@ -7,23 +7,19 @@ namespace Tests\Unit;
 use App\DTOs\Parsing\ParsedResume;
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
+use App\Enums\TemplateLayout;
 use App\Models\Company;
+use App\Models\ResumeTemplate;
 use App\Services\Ats\AtsResumeFormatter;
+use App\Services\Ats\AtsScore;
 use App\Services\Parsing\FakeResumeParser;
 use Tests\TestCase;
 
 final class AtsResumeFormatterTest extends TestCase
 {
-    public function test_sections_follow_the_template_default_order(): void
+    public function test_sections_follow_the_layout_default_order(): void
     {
-        $document = $this->format(new Company([
-            'resume_template' => ResumeTemplate::Modern,
-            'section_order' => null,
-            'brand_color' => '#000000',
-            'logo_placement' => LogoPlacement::Right,
-            'logo_size' => LogoSize::Medium,
-        ]));
+        $document = $this->format($this->company(), $this->template(TemplateLayout::Modern));
 
         $this->assertSame(
             ['summary', 'skills', 'experience', 'certifications', 'education', 'languages'],
@@ -31,15 +27,12 @@ final class AtsResumeFormatterTest extends TestCase
         );
     }
 
-    public function test_a_company_override_wins_over_the_template(): void
+    public function test_a_template_override_wins_over_its_layout_default(): void
     {
-        $document = $this->format(new Company([
-            'resume_template' => ResumeTemplate::Classic,
-            'section_order' => ['experience', 'summary', 'skills'],
-            'brand_color' => '#000000',
-            'logo_placement' => LogoPlacement::Right,
-            'logo_size' => LogoSize::Medium,
-        ]));
+        $document = $this->format(
+            $this->company(),
+            $this->template(TemplateLayout::Classic, ['experience', 'summary', 'skills']),
+        );
 
         $this->assertSame(
             ['experience', 'summary', 'skills'],
@@ -49,13 +42,10 @@ final class AtsResumeFormatterTest extends TestCase
 
     public function test_unknown_section_keys_are_ignored(): void
     {
-        $document = $this->format(new Company([
-            'resume_template' => ResumeTemplate::Classic,
-            'section_order' => ['summary', 'salary_expectations', 'skills'],
-            'brand_color' => '#000000',
-            'logo_placement' => LogoPlacement::Right,
-            'logo_size' => LogoSize::Medium,
-        ]));
+        $document = $this->format(
+            $this->company(),
+            $this->template(TemplateLayout::Classic, ['summary', 'salary_expectations', 'skills']),
+        );
 
         $this->assertSame(['summary', 'skills'], array_column($document['sections'], 'key'));
     }
@@ -77,7 +67,7 @@ final class AtsResumeFormatterTest extends TestCase
             'summary' => "•  Led  the \u{201C}regional\u{201D} team \u{2014} across   three sites",
         ]);
 
-        $document = (new AtsResumeFormatter)->format($parsed, $this->company());
+        $document = (new AtsResumeFormatter(new AtsScore))->format($parsed, $this->company(), $this->template());
 
         $this->assertSame(
             'Led the "regional" team - across three sites',
@@ -100,9 +90,10 @@ final class AtsResumeFormatterTest extends TestCase
         $payload['contact']['email'] = null;
         $payload['experience'] = [];
 
-        $document = (new AtsResumeFormatter)->format(
+        $document = (new AtsResumeFormatter(new AtsScore))->format(
             ParsedResume::fromArray($payload),
             $this->company(),
+            $this->template(),
         );
 
         $this->assertSame(55, $document['score']['value']);
@@ -116,9 +107,10 @@ final class AtsResumeFormatterTest extends TestCase
         $payload['certifications'] = [];
         $payload['languages'] = [];
 
-        $document = (new AtsResumeFormatter)->format(
+        $document = (new AtsResumeFormatter(new AtsScore))->format(
             ParsedResume::fromArray($payload),
             $this->company(),
+            $this->template(),
         );
 
         $keys = array_column($document['sections'], 'key');
@@ -127,11 +119,12 @@ final class AtsResumeFormatterTest extends TestCase
         $this->assertNotContains('languages', $keys);
     }
 
-    public function test_the_professional_template_centres_the_header_and_leads_with_details(): void
+    public function test_the_professional_layout_centres_the_header_and_leads_with_details(): void
     {
-        $document = (new AtsResumeFormatter)->format(
+        $document = (new AtsResumeFormatter(new AtsScore))->format(
             ParsedResume::fromArray($this->detailedPayload()),
-            $this->company(ResumeTemplate::Professional),
+            $this->company(),
+            $this->template(TemplateLayout::Professional),
         );
 
         $this->assertTrue($document['header']['centred']);
@@ -139,18 +132,19 @@ final class AtsResumeFormatterTest extends TestCase
         $this->assertSame('details', $document['sections'][0]['key']);
     }
 
-    public function test_other_templates_keep_a_left_aligned_header(): void
+    public function test_other_layouts_keep_a_left_aligned_header(): void
     {
-        $document = $this->format($this->company(ResumeTemplate::Classic));
+        $document = $this->format($this->company(), $this->template(TemplateLayout::Classic));
 
         $this->assertFalse($document['header']['centred']);
     }
 
     public function test_personal_details_render_as_labelled_rows(): void
     {
-        $document = (new AtsResumeFormatter)->format(
+        $document = (new AtsResumeFormatter(new AtsScore))->format(
             ParsedResume::fromArray($this->detailedPayload()),
-            $this->company(ResumeTemplate::Professional),
+            $this->company(),
+            $this->template(TemplateLayout::Professional),
         );
 
         $details = $this->section($document, 'details');
@@ -164,9 +158,10 @@ final class AtsResumeFormatterTest extends TestCase
 
     public function test_labelled_skills_render_as_groups_and_keep_a_flat_list(): void
     {
-        $document = (new AtsResumeFormatter)->format(
+        $document = (new AtsResumeFormatter(new AtsScore))->format(
             ParsedResume::fromArray($this->detailedPayload()),
-            $this->company(ResumeTemplate::Professional),
+            $this->company(),
+            $this->template(TemplateLayout::Professional),
         );
 
         $skills = $this->section($document, 'skills');
@@ -247,23 +242,36 @@ final class AtsResumeFormatterTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function format(Company $company): array
+    private function format(Company $company, ?ResumeTemplate $template = null): array
     {
-        return (new AtsResumeFormatter)->format(
+        return (new AtsResumeFormatter(new AtsScore))->format(
             ParsedResume::fromArray(FakeResumeParser::payload()),
             $company,
+            $template ?? $this->template(),
         );
     }
 
-    private function company(ResumeTemplate $template = ResumeTemplate::Classic): Company
+    private function company(): Company
     {
         return new Company([
             'name' => 'Gulf Freight Partners',
-            'resume_template' => $template,
-            'section_order' => null,
             'brand_color' => '#0F766E',
             'logo_placement' => LogoPlacement::Right,
             'logo_size' => LogoSize::Medium,
+        ]);
+    }
+
+    /**
+     * @param  list<string>|null  $sectionOrder
+     */
+    private function template(
+        TemplateLayout $layout = TemplateLayout::Classic,
+        ?array $sectionOrder = null,
+    ): ResumeTemplate {
+        return new ResumeTemplate([
+            'name' => 'Gulf Freight house style',
+            'layout' => $layout,
+            'section_order' => $sectionOrder,
         ]);
     }
 

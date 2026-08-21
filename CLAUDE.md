@@ -95,28 +95,55 @@ toward the boilerplate without asking.
 app/
 ├── Actions/Company/          CreateCompany · UpdateCompany · DeleteCompany
 ├── Actions/Resume/           StoreResume · ParseResume
+├── Actions/ResumeTemplate/   CreateResumeTemplate · UpdateResumeTemplate · DeleteResumeTemplate
 ├── Contracts/                ResumeParser  <- the sidecar boundary (RULES §3-D)
-├── DTOs/                     CompanyData · ResumeUploadData · ParsedResume + child DTOs
-├── Enums/                    ResumeStatus · ResumeTemplate
-├── Exceptions/               ResumeParsingFailedException
-├── Http/Controllers/         CompanyController · ResumeController · ResumeFileController
-├── Http/Requests/Company|Resume/
-├── Http/Resources/           CompanyResource · CompanyCardResource · ResumeResource · ResumeCardResource
-├── Jobs/                     ParseResumeJob        (queued; never parse in-request)
-├── Models/                   Company · Resume
-├── Policies/                 CompanyPolicy · ResumePolicy
-└── Services/                 Ats/AtsResumeFormatter · Parsing/SidecarResumeParser · Parsing/FakeResumeParser
+├── DTOs/                     CompanyData · ResumeTemplateData · ResumeUploadData · ParsedResume + child DTOs
+├── Enums/                    ResumeStatus · TemplateLayout   (the built-in renderers)
+├── Exceptions/               ResumeParsingFailedException · ResumeTemplateInUseException
+├── Http/Controllers/         DashboardController · CompanyController · ResumeTemplateController
+│                             ResumeController · ResumeFileController · ResumePdfController
+├── Http/Requests/Company|Resume|ResumeTemplate/
+├── Http/Resources/           Company* · Resume* · ResumeTemplate* (full + Card each)
+├── Jobs/                     ParseResumeJob · DeriveTemplateSectionsJob  (queued; never parse in-request)
+├── Models/                   Company · Resume · ResumeTemplate
+├── Policies/                 CompanyPolicy · ResumePolicy · ResumeTemplatePolicy
+└── Services/                 Ats/AtsResumeFormatter · Ats/AtsScore · Dashboard/DashboardSummary
+                              Pdf/AtsResumePdf (dompdf)
+                              Parsing/SidecarResumeParser · Parsing/FakeResumeParser
+                              Storage/LogoStorage · Storage/TemplateSampleStorage
 
 resources/js/
 ├── components/crm/           company-form · company-logo-input · resume-upload-card
+│                             resume-template-form · section-order-picker · template-summary
+│                             resume-template-switcher · confirm-destructive-dialog
 │                             ats-resume-preview · resume-status-badge · empty-state
+│                             stat-tile · upload-trend · resume-row  (dashboard)
+├── pages/dashboard.tsx       intake, pipeline health, what needs attention
 ├── pages/companies/          index · create · edit · show
+├── pages/resume-templates/   index · create · edit
 ├── pages/resumes/            show          (the ATS output)
 └── types/models.ts           mirrors the API Resources 1:1
 
+resources/views/pdf/          the ATS document as a PDF (dompdf twin of the preview)
 sidecar/                      FastAPI service — see sidecar/README.md
-routes/crm.php                all company + resume routes (auth + verified)
+routes/crm.php                all template + company + resume routes (auth + verified)
 ```
+
+### Templates are data, layouts are code
+
+A **ResumeTemplate** row is a house style: a `TemplateLayout` (one of the four React
+renderers) plus the section order it prints. Companies point at one; a resume **freezes** the
+template it was uploaded against (`resumes.resume_template_id`), so re-pointing a company
+never restyles documents already produced. Adding a house style is a row; adding a *layout*
+means a new enum case **and** a renderer in `ats-resume-preview`.
+
+### The PDF export
+
+`GET /resumes/{id}/pdf` renders `resources/views/pdf/ats-resume.blade.php` through dompdf
+from **the same `AtsResumeFormatter` array the React preview consumes** — so the export can
+never disagree with the preview about order or content. It is a Blade twin on purpose: the
+text must stay selectable text for an ATS, which rules out rasterising the DOM. Change the
+preview's structure and you change this view in the same commit.
 
 ### The parsing boundary (read before touching parsing)
 
@@ -195,6 +222,11 @@ Rules of thumb:
 
 - **A queue worker never sees a config change.** After editing `.env` (especially
   `SIDECAR_DRIVER`), run `php artisan queue:restart` or the job keeps using the old value.
+- **Windows lets two processes listen on one port.** An orphaned uvicorn worker keeps
+  answering on 8001 with stale code while a freshly started server looks healthy — the
+  symptom is a response that ignores code you just wrote (it cost hours twice). Start the
+  sidecar with `scripts/sidecar.ps1`, which clears the port first, or check
+  `Get-NetTCPConnection -LocalPort 8001 -State Listen`.
 - Run the sidecar with `--reload` in development.
 - When a result contradicts the code you just wrote, **suspect a stale process before
   suspecting the logic** — verify by running the same thing in a fresh process

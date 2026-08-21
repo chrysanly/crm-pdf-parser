@@ -5,11 +5,11 @@ import type {
     EnumOption,
     LogoPlacementValue,
     LogoSizeValue,
-    TemplateOption,
+    ResumeTemplateCard,
 } from '@/types/models';
 
 type Props = {
-    templates: TemplateOption[];
+    templates: ResumeTemplateCard[];
     logoPlacements: EnumOption<LogoPlacementValue>[];
     logoSizes: EnumOption<LogoSizeValue>[];
 };

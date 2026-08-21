@@ -9,7 +9,7 @@ use App\Contracts\ResumeParser;
 use App\DTOs\Parsing\ParsedResume;
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
+use App\Enums\TemplateLayout;
 use App\Models\Company;
 use App\Models\Resume;
 use App\Models\User;
@@ -55,7 +55,7 @@ final class AtsPreviewTest extends TestCase
                 ->component('resumes/show')
                 ->where('resume.candidate_name', 'Fatima Al-Suwaidi')
                 ->where('resume.ats.header.name', 'Fatima Al-Suwaidi')
-                ->where('resume.ats.template', $company->resume_template->value)
+                ->where('resume.ats.template', $company->resumeTemplate->layout->value)
             );
     }
 
@@ -80,15 +80,15 @@ final class AtsPreviewTest extends TestCase
         );
     }
 
-    public function test_the_company_template_decides_the_section_order_of_the_same_upload(): void
+    public function test_the_assigned_template_decides_the_section_order_of_the_same_upload(): void
     {
         Storage::fake('local');
 
         $user = User::factory()->create();
         $this->bindEchoParser();
 
-        $classic = Company::factory()->template(ResumeTemplate::Classic)->create();
-        $modern = Company::factory()->template(ResumeTemplate::Modern)->create();
+        $classic = Company::factory()->layout(TemplateLayout::Classic)->create();
+        $modern = Company::factory()->layout(TemplateLayout::Modern)->create();
 
         $orders = [];
 
@@ -98,7 +98,7 @@ final class AtsPreviewTest extends TestCase
 
             app(ParseResume::class)->handle($resume);
 
-            $document = $this->atsFor($resume->fresh(), $company);
+            $document = $this->atsFor($resume->fresh(), $company->load('resumeTemplate'));
             $orders[] = array_column($document['sections'], 'key');
         }
 
@@ -107,10 +107,10 @@ final class AtsPreviewTest extends TestCase
         $this->assertSame('skills', $orders[1][1]);       // modern: summary, skills…
     }
 
-    public function test_the_professional_template_reaches_the_page_with_its_letterhead(): void
+    public function test_the_professional_layout_reaches_the_page_with_its_letterhead(): void
     {
         $company = Company::factory()
-            ->template(ResumeTemplate::Professional)
+            ->layout(TemplateLayout::Professional)
             ->create([
                 'logo_path' => 'company-logos/acme.png',
                 'logo_placement' => LogoPlacement::Centre,
@@ -138,6 +138,7 @@ final class AtsPreviewTest extends TestCase
         return app(AtsResumeFormatter::class)->format(
             ParsedResume::fromArray((array) $resume->parsed_data),
             $company,
+            $resume->resumeTemplate,
         );
     }
 

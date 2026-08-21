@@ -1,12 +1,14 @@
 import { createInertiaApp } from '@inertiajs/react';
+import { GlobalLoadingIndicator } from '@/components/global-loading-indicator';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
+import { dismissSplash } from '@/lib/splash';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'CRM PDF Parser';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -26,15 +28,16 @@ createInertiaApp({
     withApp(app) {
         return (
             <TooltipProvider delayDuration={0}>
+                <GlobalLoadingIndicator />
                 {app}
                 <Toaster />
             </TooltipProvider>
         );
     },
-    progress: {
-        color: '#4B5563',
-    },
-});
+    // Progress is rendered by GlobalLoadingIndicator instead — two bars for one
+    // visit is worse than none.
+    progress: false,
+}).then(dismissSplash);
 
 // This will set light / dark mode on load...
 initializeTheme();

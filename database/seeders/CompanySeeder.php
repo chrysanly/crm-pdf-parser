@@ -6,9 +6,9 @@ namespace Database\Seeders;
 
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
 use App\Models\Company;
 use App\Models\Resume;
+use App\Models\ResumeTemplate;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -32,8 +32,7 @@ final class CompanySeeder extends Seeder
                 'contact_phone' => '+97143214567',
                 'website' => 'https://gulffreight.example.ae',
                 'brand_color' => '#0F766E',
-                'resume_template' => ResumeTemplate::Professional,
-                'section_order' => null,
+                'resume_template' => 'professional',
                 'logo_placement' => LogoPlacement::Right,
                 'logo_size' => LogoSize::Medium,
                 'formatting_notes' => 'Reverse-chronological only. Dates as "Mon YYYY". '
@@ -47,8 +46,7 @@ final class CompanySeeder extends Seeder
                 'contact_phone' => '+97165551234',
                 'website' => 'https://almasaretail.example.ae',
                 'brand_color' => '#7C2D12',
-                'resume_template' => ResumeTemplate::Modern,
-                'section_order' => ['summary', 'skills', 'experience', 'education', 'languages'],
+                'resume_template' => 'professional-skills-first',
                 'formatting_notes' => 'Skills band directly under the summary. '
                     .'Certifications are optional; languages are mandatory for store-facing roles.',
             ],
@@ -60,17 +58,25 @@ final class CompanySeeder extends Seeder
                 'contact_phone' => '+97124447788',
                 'website' => 'https://nakheeleng.example.ae',
                 'brand_color' => '#1D4ED8',
-                'resume_template' => ResumeTemplate::Compact,
-                'section_order' => null,
+                'resume_template' => 'compact',
                 'formatting_notes' => 'Single page. Certifications (Society of Engineers, PMP) '
                     .'must appear before education.',
             ],
         ];
 
+        $templates = ResumeTemplate::query()->pluck('id', 'slug');
+
         foreach ($companies as $attributes) {
+            $templateSlug = (string) $attributes['resume_template'];
+            unset($attributes['resume_template']);
+
             Company::query()->updateOrCreate(
                 ['slug' => $attributes['slug']],
-                [...$attributes, 'is_active' => true],
+                [
+                    ...$attributes,
+                    'resume_template_id' => $templates[$templateSlug] ?? $templates->first(),
+                    'is_active' => true,
+                ],
             );
         }
 

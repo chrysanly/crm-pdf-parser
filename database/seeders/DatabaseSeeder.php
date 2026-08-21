@@ -38,6 +38,8 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
+        // Templates first: companies reference one.
+        $this->call(ResumeTemplateSeeder::class);
         $this->call(CompanySeeder::class);
     }
 }

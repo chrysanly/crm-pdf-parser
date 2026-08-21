@@ -10,6 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "barryvdh/laravel-dompdf": "^3.1.2",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
@@ -52,6 +53,14 @@
         "dev": [
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
+        ],
+        "sidecar": [
+            "Composer\\Config::disableProcessTimeout",
+            "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sidecar.ps1"
+        ],
+        "sidecar:test": [
+            "Composer\\Config::disableProcessTimeout",
+            "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sidecar.ps1 -Test"
         ],
         "lint": [
             "pint --parallel"

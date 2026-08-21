@@ -1,13 +1,20 @@
 import type { SVGAttributes } from 'react';
 
+/**
+ * The CRM PDF Parser mark: a document whose lines are being read out of it.
+ * Single-colour and hole-based (fill-rule evenodd) so it inherits
+ * `fill-current` wherever it is placed — sidebar, auth card, print header.
+ */
 export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
     return (
         <svg {...props} viewBox="0 0 40 42" xmlns="http://www.w3.org/2000/svg">
             <path
                 fillRule="evenodd"
                 clipRule="evenodd"
-                d="M17.2 5.63325L8.6 0.855469L0 5.63325V32.1434L16.2 41.1434L32.4 32.1434V23.699L40 19.4767V9.85547L31.4 5.07769L22.8 9.85547V18.2999L17.2 21.411V5.63325ZM38 18.2999L32.4 21.411V15.2545L38 12.1434V18.2999ZM36.9409 10.4439L31.4 13.5221L25.8591 10.4439L31.4 7.36561L36.9409 10.4439ZM24.8 18.2999V12.1434L30.4 15.2545V21.411L24.8 18.2999ZM23.8 20.0323L29.3409 23.1105L16.2 30.411L10.6591 27.3328L23.8 20.0323ZM7.6 27.9212L15.2 32.1434V38.2999L2 30.9666V7.92116L7.6 11.0323V27.9212ZM8.6 9.29991L3.05913 6.22165L8.6 3.14339L14.1409 6.22165L8.6 9.29991ZM30.4 24.8101L17.2 32.1434V38.2999L30.4 30.9666V24.8101ZM9.6 11.0323L15.2 7.92117V22.5221L9.6 25.6333V11.0323Z"
+                d="M7 1H21.4142L30 9.58579V33C30 34.6569 28.6569 36 27 36H7C5.34315 36 4 34.6569 4 33V4C4 2.34315 5.34315 1 7 1ZM8 5V32H26V13H19V5H8ZM22 5.82843L25.1716 9H22V5.82843ZM10 16H24V19H10V16ZM10 22H24V25H10V22ZM10 28H19V31H10V28Z"
             />
+            <path d="M31.5 24H38L34.75 30.5L31.5 24Z" />
+            <path d="M33 15H36.5V23H33V15Z" />
         </svg>
     );
 }

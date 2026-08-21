@@ -107,6 +107,8 @@ export default [
             'vendor',
             'node_modules',
             'public',
+            // The sidecar's Python virtualenv ships vendored JavaScript.
+            'sidecar/.venv/**',
             'bootstrap/ssr',
             'tailwind.config.js',
             'vite.config.ts',

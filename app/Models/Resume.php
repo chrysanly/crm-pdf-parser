@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $public_id
  * @property int $company_id
+ * @property int|null $resume_template_id
  * @property int $uploaded_by
  * @property string $original_filename
  * @property string $stored_path
@@ -33,10 +34,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Company $company
+ * @property-read ResumeTemplate|null $resumeTemplate
  * @property-read User $uploader
  */
 #[Fillable([
     'company_id',
+    'resume_template_id',
     'uploaded_by',
     'original_filename',
     'stored_path',
@@ -90,6 +93,17 @@ class Resume extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * The house style this document was produced with, frozen at upload so a
+     * later change to the company never restyles it.
+     *
+     * @return BelongsTo<ResumeTemplate, $this>
+     */
+    public function resumeTemplate(): BelongsTo
+    {
+        return $this->belongsTo(ResumeTemplate::class);
     }
 
     /**

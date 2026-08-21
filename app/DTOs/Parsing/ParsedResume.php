@@ -19,11 +19,15 @@ final readonly class ParsedResume
      * @param  list<string>  $skills  every skill, flattened (ATS keyword checks)
      * @param  list<string>  $certifications
      * @param  list<string>  $languages
+     * @param  list<string>  $sectionOrder  the order the source document printed
+     *                                      its sections in — read when building a
+     *                                      template from a sample resume
      * @param  list<string>  $warnings  ATS issues found in the source document
      */
     public function __construct(
         public ContactInfo $contact,
         public ?string $headline,
+        public array $sectionOrder,
         public array $details,
         public ?string $summary,
         public array $experience,
@@ -67,6 +71,7 @@ final readonly class ParsedResume
         return new self(
             contact: ContactInfo::fromArray($contact),
             headline: Cast::string($payload['headline'] ?? null),
+            sectionOrder: Cast::stringList($payload['section_order'] ?? []),
             details: array_map(
                 DetailItem::fromArray(...),
                 Cast::rowList($payload['details'] ?? []),
@@ -100,6 +105,7 @@ final readonly class ParsedResume
         return [
             'contact' => $this->contact->toArray(),
             'headline' => $this->headline,
+            'section_order' => $this->sectionOrder,
             'details' => array_map(static fn (DetailItem $d): array => $d->toArray(), $this->details),
             'summary' => $this->summary,
             'experience' => array_map(static fn (ExperienceEntry $e): array => $e->toArray(), $this->experience),

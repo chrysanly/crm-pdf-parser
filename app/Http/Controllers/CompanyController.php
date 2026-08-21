@@ -10,13 +10,14 @@ use App\Actions\Company\UpdateCompany;
 use App\DTOs\CompanyData;
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
 use App\Http\Requests\Company\StoreCompanyRequest;
 use App\Http\Requests\Company\UpdateCompanyRequest;
 use App\Http\Resources\CompanyCardResource;
 use App\Http\Resources\CompanyResource;
 use App\Http\Resources\ResumeCardResource;
+use App\Http\Resources\ResumeTemplateCardResource;
 use App\Models\Company;
+use App\Models\ResumeTemplate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -35,7 +36,8 @@ final class CompanyController extends Controller
         $search = $request->string('search')->toString();
 
         $companies = Company::query()
-            ->select(['id', 'public_id', 'slug', 'name', 'industry', 'logo_path', 'logo_placement', 'logo_size', 'brand_color', 'resume_template', 'is_active'])
+            ->select(['id', 'public_id', 'slug', 'name', 'industry', 'logo_path', 'logo_placement', 'logo_size', 'brand_color', 'resume_template_id', 'is_active'])
+            ->with('resumeTemplate:id,slug,name,layout')
             ->withCount('resumes')
             ->search($search)
             ->orderBy('name')
@@ -53,7 +55,7 @@ final class CompanyController extends Controller
         $this->authorize('create', Company::class);
 
         return Inertia::render('companies/create', [
-            'templates' => ResumeTemplate::options(),
+            'templates' => $this->templateOptions(),
             'logoPlacements' => LogoPlacement::options(),
             'logoSizes' => LogoSize::options(),
         ]);
@@ -78,7 +80,7 @@ final class CompanyController extends Controller
             ->withQueryString();
 
         return Inertia::render('companies/show', [
-            'company' => new CompanyResource($company->loadCount('resumes')),
+            'company' => new CompanyResource($company->load('resumeTemplate')->loadCount('resumes')),
             'resumes' => ResumeCardResource::collection($resumes),
         ]);
     }
@@ -88,8 +90,8 @@ final class CompanyController extends Controller
         $this->authorize('update', $company);
 
         return Inertia::render('companies/edit', [
-            'company' => new CompanyResource($company),
-            'templates' => ResumeTemplate::options(),
+            'company' => new CompanyResource($company->load('resumeTemplate')),
+            'templates' => $this->templateOptions(),
             'logoPlacements' => LogoPlacement::options(),
             'logoSizes' => LogoSize::options(),
         ]);
@@ -113,5 +115,24 @@ final class CompanyController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Company archived.')]);
 
         return to_route('companies.index');
+    }
+
+    /**
+     * The templates the picker offers, resolved to a plain list so the page prop
+     * is an array rather than a wrapped collection.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function templateOptions(): array
+    {
+        /** @var list<array<string, mixed>> $options */
+        $options = array_values(ResumeTemplateCardResource::collection(
+            ResumeTemplate::query()
+                ->active()
+                ->orderBy('name')
+                ->get(['id', 'public_id', 'slug', 'name', 'description', 'layout', 'section_order', 'is_active']),
+        )->resolve());
+
+        return $options;
     }
 }

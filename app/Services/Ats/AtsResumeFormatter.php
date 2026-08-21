@@ -10,7 +10,9 @@ use App\DTOs\Parsing\ExperienceEntry;
 use App\DTOs\Parsing\ParsedResume;
 use App\DTOs\Parsing\SkillGroup;
 use App\Enums\LogoPlacement;
+use App\Enums\TemplateLayout;
 use App\Models\Company;
+use App\Models\ResumeTemplate;
 
 /**
  * Maps a ParsedResume onto one company's house style: section order, section
@@ -21,10 +23,13 @@ use App\Models\Company;
  */
 final readonly class AtsResumeFormatter
 {
+    public function __construct(private AtsScore $scores) {}
+
     /**
-     * Section keys this formatter knows how to emit.
+     * Section keys this formatter knows how to emit — the set a template may
+     * order, so template validation reads it from here rather than repeating it.
      */
-    private const array SUPPORTED_SECTIONS = [
+    public const array SUPPORTED_SECTIONS = [
         'details',
         'summary',
         'experience',
@@ -35,19 +40,24 @@ final readonly class AtsResumeFormatter
     ];
 
     /**
+     * @param  ResumeTemplate|null  $template  the style the document was produced
+     *                                         with; null falls back to the company's current template
      * @return array{
      *     header: array<string, mixed>,
      *     sections: list<array<string, mixed>>,
      *     score: array{value: int, band: string, notes: list<string>},
      *     warnings: list<string>,
      *     template: string,
+     *     template_name: string,
      * }
      */
-    public function format(ParsedResume $resume, Company $company): array
+    public function format(ParsedResume $resume, Company $company, ?ResumeTemplate $template = null): array
     {
+        $template ??= $company->resumeTemplate;
+        $layout = $template->layout;
         $sections = [];
 
-        foreach ($this->sectionOrderFor($company) as $key) {
+        foreach ($this->sectionOrderFor($template) as $key) {
             $section = $this->section($key, $resume);
 
             if ($section !== null) {
@@ -56,21 +66,22 @@ final readonly class AtsResumeFormatter
         }
 
         return [
-            'header' => $this->header($resume, $company),
+            'header' => $this->header($resume, $company, $layout),
             'sections' => $sections,
-            'score' => $this->score($resume),
+            'score' => $this->scores->for($resume),
             'warnings' => $resume->warnings,
-            'template' => $company->resume_template->value,
+            'template' => $layout->value,
+            'template_name' => $template->name,
         ];
     }
 
     /**
      * @return list<string>
      */
-    private function sectionOrderFor(Company $company): array
+    private function sectionOrderFor(ResumeTemplate $template): array
     {
         return array_values(array_filter(
-            $company->effectiveSectionOrder(),
+            $template->effectiveSectionOrder(),
             static fn (string $key): bool => in_array($key, self::SUPPORTED_SECTIONS, true),
         ));
     }
@@ -78,7 +89,7 @@ final readonly class AtsResumeFormatter
     /**
      * @return array<string, mixed>
      */
-    private function header(ParsedResume $resume, Company $company): array
+    private function header(ParsedResume $resume, Company $company, TemplateLayout $layout): array
     {
         $contact = $resume->contact;
 
@@ -92,7 +103,7 @@ final readonly class AtsResumeFormatter
                 $contact->linkedin,
                 $contact->website,
             ])),
-            'centred' => $company->resume_template->hasCentredHeader(),
+            'centred' => $layout->hasCentredHeader(),
             'logo' => $this->logo($company),
         ];
     }
@@ -277,64 +288,5 @@ final readonly class AtsResumeFormatter
         );
 
         return trim((string) preg_replace('/\s+/u', ' ', $clean));
-    }
-
-    /**
-     * @return array{value: int, band: string, notes: list<string>}
-     */
-    private function score(ParsedResume $resume): array
-    {
-        $notes = [];
-        $value = 100;
-
-        if ($resume->contact->email === null) {
-            $value -= 20;
-            $notes[] = __('No email address was detected — ATS filters usually reject the file outright.');
-        }
-
-        if ($resume->contact->phone === null) {
-            $value -= 10;
-            $notes[] = __('No phone number was detected.');
-        }
-
-        if ($resume->summary === null) {
-            $value -= 10;
-            $notes[] = __('No professional summary — add 2–3 lines with the target job title.');
-        }
-
-        if ($resume->experience === []) {
-            $value -= 25;
-            $notes[] = __('No work experience could be extracted; the layout may be unreadable to an ATS.');
-        }
-
-        if (count($resume->skills) < 5) {
-            $value -= 10;
-            $notes[] = __('Fewer than five skills detected — ATS keyword matching needs an explicit skills list.');
-        }
-
-        $quantified = array_filter(
-            $resume->experience,
-            static fn (ExperienceEntry $entry): bool => array_any(
-                $entry->highlights,
-                static fn (string $highlight): bool => preg_match('/\d/', $highlight) === 1,
-            ),
-        );
-
-        if ($resume->experience !== [] && $quantified === []) {
-            $value -= 5;
-            $notes[] = __('No quantified achievements found — add numbers (%, AED, headcount) to highlights.');
-        }
-
-        $value = max(0, min(100, $value));
-
-        return [
-            'value' => $value,
-            'band' => match (true) {
-                $value >= 85 => 'strong',
-                $value >= 65 => 'fair',
-                default => 'weak',
-            },
-            'notes' => $notes,
-        ];
     }
 }

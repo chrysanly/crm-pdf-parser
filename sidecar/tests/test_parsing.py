@@ -270,3 +270,208 @@ def test_page_count_and_warnings_pass_through():
 
     assert resume.page_count == 3
     assert "two-column layout" in resume.warnings
+
+
+# The layout of the cashier resume that shipped a job called "Dunkin' Donuts"
+# with the real title glued to the end of its last bullet: title, employer and
+# dates each on their own line, and the bullets drawn from an unmapped glyph
+# that extraction has already turned into "•".
+STACKED_RESUME = """Salaheldin Medhat
+• salaheldinziada.6@gmail.com
+• Egypt
+
+Professional Summary
+Reliable and detail-oriented cashier.
+
+Professional Experience
+Cashier & Customer Service Representative
+Dunkin' Donuts – Cairo, Egypt
+June 2023 – Present
+• Provide efficient cashiering in a fast-paced food retail environment.
+• Support daily operations, including stock control and cash reconciliation.
+Cashier / Crew Member
+McDonald's – Cairo, Egypt
+April 2021 – May 2023
+• Processed high-volume transactions efficiently during peak hours.
+
+Skills
+• Cash Handling & POS System Operation
+• Customer Service and Sales Support
+• Microsoft Excel / Word
+
+Education
+Bachelor of International Business – Major: Financial and Banking Sciences
+Graduated: May 2022
+
+Languages
+• Arabic – Native
+References available upon request.
+"""
+
+
+def test_a_three_line_role_block_is_one_job():
+    resume = parse(STACKED_RESUME)
+
+    assert len(resume.experience) == 2
+
+    first = resume.experience[0]
+    assert first.title == "Cashier & Customer Service Representative"
+    assert first.company == "Dunkin' Donuts"
+    assert first.location == "Cairo, Egypt"
+    assert first.start_date == "2023-06"
+    assert first.is_current is True
+
+
+def test_a_role_title_after_bullets_starts_a_new_job():
+    resume = parse(STACKED_RESUME)
+
+    second = resume.experience[1]
+    assert second.title == "Cashier / Crew Member"
+    assert second.company == "McDonald's"
+    assert second.end_date == "2023-05"
+
+    # The title must not have been swallowed by the bullet above it.
+    assert all(
+        "Crew Member" not in highlight for highlight in resume.experience[0].highlights
+    )
+
+
+def test_the_employer_line_is_never_read_as_the_location_only():
+    resume = parse(STACKED_RESUME)
+
+    assert [entry.company for entry in resume.experience] == ["Dunkin' Donuts", "McDonald's"]
+
+
+def test_bulleted_skills_stay_separate_items():
+    resume = parse(STACKED_RESUME)
+
+    assert resume.skills == [
+        "Cash Handling & POS System Operation",
+        "Customer Service and Sales Support",
+        "Microsoft Excel / Word",
+    ]
+
+
+def test_a_graduation_line_dates_the_degree_above_it():
+    resume = parse(STACKED_RESUME)
+
+    assert len(resume.education) == 1
+    assert resume.education[0].end_date == "2022-05"
+
+
+def test_a_field_of_study_is_not_mistaken_for_a_school():
+    resume = parse(STACKED_RESUME)
+
+    assert resume.education[0].institution is None
+    assert "Major: Financial and Banking Sciences" in resume.education[0].degree
+
+
+def test_closing_boilerplate_is_not_a_language():
+    resume = parse(STACKED_RESUME)
+
+    assert resume.languages == ["Arabic – Native"]
+
+
+def test_a_country_on_its_own_is_still_a_location():
+    resume = parse(STACKED_RESUME)
+
+    assert resume.contact.location == "Egypt"
+    # "• Egypt" is contact detail, not the job title under the name.
+    assert resume.headline is None
+
+
+ARROW_RESUME = """Mohammed Baddour
+mohammed.baddour1997@gmail.com | Mobile: 0566202954 | Dubai, UAE
+General Accountant
+
+PROFESSIONAL EXPERIENCE
+➢ General Accountant – Al Mutakamela Vehicle Testing, Dubai, Jun 2024 to present
+    • Manage daily accounting operations including journal entries.
+    • Reconcile cash, card, and customer prepaid transactions.
+
+EDUCATION AND TRAINING
+Bachelor of Commerce | Damascus University | 2019
+"""
+
+
+def test_arrow_markers_are_bullets_not_text():
+    resume = parse(ARROW_RESUME)
+
+    assert len(resume.experience) == 1
+    entry = resume.experience[0]
+
+    assert entry.title == "General Accountant"
+    assert entry.company is not None
+    assert "➢" not in entry.title
+    assert all("➢" not in highlight for highlight in entry.highlights)
+    assert len(entry.highlights) == 2
+
+
+def test_education_and_training_is_an_education_heading():
+    resume = parse(ARROW_RESUME)
+
+    assert len(resume.education) == 1
+    assert resume.education[0].degree == "Bachelor of Commerce"
+    assert resume.education[0].end_date == "2019"
+
+
+WRAPPED_HEADER_RESUME = """Mohammed Baddour
+mohammed.baddour1997@gmail.com | Dubai, UAE
+
+PROFESSIONAL EXPERIENCE
+➢ General Accountant – Al Mutakamela Vehicle Testing & Registration-
+Dubai, (Semi- Government Entity- RTA), Jun 2024 to present
+• Manage daily accounting operations including journal entries.
+"""
+
+
+def test_a_role_header_broken_across_two_lines_is_one_header():
+    resume = parse(WRAPPED_HEADER_RESUME)
+
+    assert len(resume.experience) == 1
+
+    entry = resume.experience[0]
+    assert entry.title == "General Accountant"
+    assert entry.company is not None
+    assert entry.company.startswith("Al Mutakamela Vehicle Testing")
+    assert entry.start_date == "2024-06"
+    assert entry.is_current is True
+    assert entry.highlights == ["Manage daily accounting operations including journal entries."]
+
+
+def test_the_printed_section_order_is_reported():
+    resume = parse(RESUME)
+
+    # The fixture prints summary, experience, education, skills, certifications,
+    # languages — in that order.
+    assert resume.section_order == [
+        'summary',
+        'experience',
+        'education',
+        'skills',
+        'certifications',
+        'languages',
+    ]
+
+
+def test_the_printed_section_order_follows_the_document_not_a_default():
+    resume = parse(STACKED_RESUME)
+
+    assert resume.section_order == [
+        'summary',
+        'experience',
+        'skills',
+        'education',
+        'languages',
+    ]
+
+
+def test_a_headed_but_empty_section_is_not_reported_as_printed():
+    resume = parse(
+        "Ali Nasser\nali@example.com\n\n"
+        "PROFILE\nSoftware engineer.\n\n"
+        "CERTIFICATIONS\n\n"
+        "KEY SKILLS\nPython, Go\n"
+    )
+
+    assert resume.section_order == ['summary', 'skills']

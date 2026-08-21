@@ -6,16 +6,12 @@ namespace App\DTOs;
 
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
 use App\Http\Requests\Company\StoreCompanyRequest;
 use App\Http\Requests\Company\UpdateCompanyRequest;
 use Illuminate\Http\UploadedFile;
 
 final readonly class CompanyData
 {
-    /**
-     * @param  list<string>|null  $sectionOrder
-     */
     public function __construct(
         public string $name,
         public ?string $industry,
@@ -23,10 +19,9 @@ final readonly class CompanyData
         public ?string $contactPhone,
         public ?string $website,
         public string $brandColor,
-        public ResumeTemplate $resumeTemplate,
+        public int $resumeTemplateId,
         public LogoPlacement $logoPlacement,
         public LogoSize $logoSize,
-        public ?array $sectionOrder,
         public ?string $formattingNotes,
         public bool $isActive,
         public ?UploadedFile $logo = null,
@@ -40,11 +35,6 @@ final readonly class CompanyData
 
         $logo = $request->file('logo');
 
-        /** @var list<string>|null $sectionOrder */
-        $sectionOrder = isset($validated['section_order']) && is_array($validated['section_order'])
-            ? array_values(array_map('strval', $validated['section_order']))
-            : null;
-
         return new self(
             name: (string) $validated['name'],
             industry: self::nullableString($validated['industry'] ?? null),
@@ -52,10 +42,9 @@ final readonly class CompanyData
             contactPhone: self::nullableString($validated['contact_phone'] ?? null),
             website: self::nullableString($validated['website'] ?? null),
             brandColor: (string) ($validated['brand_color'] ?? '#1F2937'),
-            resumeTemplate: ResumeTemplate::from((string) $validated['resume_template']),
+            resumeTemplateId: $request->resumeTemplateId(),
             logoPlacement: LogoPlacement::from((string) ($validated['logo_placement'] ?? 'right')),
             logoSize: LogoSize::from((string) ($validated['logo_size'] ?? 'medium')),
-            sectionOrder: $sectionOrder,
             formattingNotes: self::nullableString($validated['formatting_notes'] ?? null),
             isActive: (bool) ($validated['is_active'] ?? true),
             logo: $logo instanceof UploadedFile ? $logo : null,
@@ -78,10 +67,9 @@ final readonly class CompanyData
             'contact_phone' => $this->contactPhone,
             'website' => $this->website,
             'brand_color' => $this->brandColor,
-            'resume_template' => $this->resumeTemplate,
+            'resume_template_id' => $this->resumeTemplateId,
             'logo_placement' => $this->logoPlacement,
             'logo_size' => $this->logoSize,
-            'section_order' => $this->sectionOrder,
             'formatting_notes' => $this->formattingNotes,
             'is_active' => $this->isActive,
         ];

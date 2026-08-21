@@ -77,7 +77,7 @@ export default function CompanyShow({ company, resumes: page }: Props) {
                             </div>
                             <p className="text-sm text-muted-foreground">
                                 {company.industry ?? 'No industry set'} ·{' '}
-                                {company.resume_template_label}
+                                {company.resume_template_name}
                             </p>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm text-muted-foreground">
                                 {company.contact_email !== null && (
@@ -223,9 +223,7 @@ export default function CompanyShow({ company, resumes: page }: Props) {
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <p className="text-sm text-muted-foreground">
-                                    {company.resume_template_label}
-                                    {company.has_custom_section_order &&
-                                        ' · custom section order'}
+                                    {company.resume_template_name}
                                 </p>
                                 <ol className="space-y-1 text-sm">
                                     {company.section_order.map((key, index) => (

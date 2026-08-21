@@ -6,7 +6,7 @@ namespace App\Http\Requests\Company;
 
 use App\Enums\LogoPlacement;
 use App\Enums\LogoSize;
-use App\Enums\ResumeTemplate;
+use App\Models\ResumeTemplate;
 use Illuminate\Validation\Rule;
 
 /**
@@ -27,11 +27,13 @@ trait CompanyValidationRules
             'contact_phone' => ['nullable', 'string', 'max:20', 'regex:/^\+[1-9]\d{6,18}$/'],
             'website' => ['nullable', 'url', 'max:255'],
             'brand_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'resume_template' => ['required', Rule::enum(ResumeTemplate::class)],
-            'section_order' => ['nullable', 'array', 'max:7'],
-            'section_order.*' => ['required', 'string', Rule::in([
-                'details', 'summary', 'experience', 'education', 'skills', 'certifications', 'languages',
-            ])],
+            // The house style is a managed template row, referenced by its public
+            // slug — internal ids never reach the client (SCHEMA §A2).
+            'resume_template' => [
+                'required',
+                'string',
+                Rule::exists('resume_templates', 'slug')->whereNull('deleted_at'),
+            ],
             'formatting_notes' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['boolean'],
             // RULES §5.7: mime + dimensions + size, all server-side. No SVG — it cannot
@@ -48,6 +50,20 @@ trait CompanyValidationRules
             'logo_placement' => ['required', Rule::enum(LogoPlacement::class)],
             'logo_size' => ['required', Rule::enum(LogoSize::class)],
         ];
+    }
+
+    /**
+     * The chosen template, resolved from the validated slug. Resolution belongs
+     * to the request, so the Action and the DTO only ever see an id.
+     */
+    public function resumeTemplateId(): int
+    {
+        /** @var array<string, mixed> $validated */
+        $validated = $this->validated();
+
+        return (int) ResumeTemplate::query()
+            ->where('slug', (string) $validated['resume_template'])
+            ->value('id');
     }
 
     /**

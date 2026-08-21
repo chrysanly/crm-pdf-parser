@@ -6,10 +6,16 @@
  *   CompanyResource     -> Company
  *   ResumeCardResource  -> ResumeCard
  *   ResumeResource      -> Resume
+ *   ResumeTemplateCardResource -> ResumeTemplateCard
+ *   ResumeTemplateResource     -> ResumeTemplate
  */
 
-export type ResumeTemplateValue =
-    'classic' | 'modern' | 'compact' | 'professional';
+/** App\Enums\TemplateLayout — the built-in renderers a template may use. */
+export type TemplateLayoutValue =
+    | 'classic'
+    | 'modern'
+    | 'compact'
+    | 'professional';
 
 export type LogoPlacementValue = 'hidden' | 'left' | 'centre' | 'right';
 
@@ -28,9 +34,29 @@ export type SectionKey =
     | 'certifications'
     | 'languages';
 
-export type TemplateOption = {
-    value: ResumeTemplateValue;
-    label: string;
+/** ResumeTemplateCardResource -> ResumeTemplateCard */
+export type ResumeTemplateCard = {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    layout: TemplateLayoutValue;
+    layout_label: string;
+    section_order: SectionKey[];
+    is_active: boolean;
+    companies_count?: number;
+    resumes_count?: number;
+};
+
+/** ResumeTemplateResource -> ResumeTemplate */
+export type ResumeTemplate = ResumeTemplateCard & {
+    has_custom_section_order: boolean;
+    /** The sample resume the section order was derived from, if any. */
+    sample_filename: string | null;
+    sample_status: ResumeStatusValue | null;
+    sample_status_label: string | null;
+    sample_failure_reason: string | null;
+    created_at: string | null;
 };
 
 /** Generic {value,label} pair from a PHP enum's options(). */
@@ -46,8 +72,9 @@ export type CompanyCard = {
     industry: string | null;
     logo_url: string | null;
     brand_color: string;
-    resume_template: ResumeTemplateValue;
-    resume_template_label: string;
+    /** Slug of the assigned template — what the company form submits. */
+    resume_template: string;
+    resume_template_name: string;
     logo_placement: LogoPlacementValue;
     logo_size: LogoSizeValue;
     logo_pixels: number;
@@ -59,8 +86,9 @@ export type Company = CompanyCard & {
     contact_email: string | null;
     contact_phone: string | null;
     website: string | null;
+    resume_template_layout: TemplateLayoutValue;
+    /** Section order in force, i.e. the assigned template's. */
     section_order: SectionKey[];
-    has_custom_section_order: boolean;
     formatting_notes: string | null;
     created_at: string | null;
 };
@@ -77,6 +105,8 @@ export type ResumeCard = {
     failure_reason: string | null;
     uploaded_at: string | null;
     parsed_at: string | null;
+    /** Present only on cross-company lists (the dashboard). */
+    company?: CompanyCard;
 };
 
 /** One rendered block of the ATS document, already ordered by the company's format. */
@@ -130,13 +160,61 @@ export type AtsDocument = {
     sections: AtsSection[];
     score: { value: number; band: 'strong' | 'fair' | 'weak'; notes: string[] };
     warnings: string[];
-    template: ResumeTemplateValue;
+    template: TemplateLayoutValue;
+    /** Name of the template this document was produced with. */
+    template_name: string;
 };
 
 export type Resume = ResumeCard & {
     candidate_email: string | null;
     company: CompanyCard;
+    /** The template frozen at upload — name to show, slug to switch with. */
+    resume_template: string | null;
+    resume_template_slug: string | null;
     ats: AtsDocument | null;
+};
+
+/** One day of the dashboard's intake chart. */
+export type TrendDay = {
+    date: string;
+    label: string;
+    count: number;
+};
+
+/** DashboardSummary::build() — figures only; entity lists come as Resources. */
+export type DashboardSummary = {
+    totals: {
+        companies: number;
+        companies_active: number;
+        templates: number;
+        templates_active: number;
+        resumes: number;
+        resumes_this_week: number;
+        parsed: number;
+        failed: number;
+        in_flight: number;
+    };
+    pipeline: {
+        status: ResumeStatusValue;
+        label: string;
+        color: ResumeStatusColor;
+        count: number;
+        share: number;
+    }[];
+    trend: TrendDay[];
+    ats: {
+        average: number | null;
+        band: 'strong' | 'fair' | 'weak' | null;
+        sampled: number;
+        bands: { strong: number; fair: number; weak: number };
+    };
+    top_companies: { name: string; slug: string; resumes: number }[];
+    template_usage: {
+        name: string;
+        slug: string;
+        companies: number;
+        resumes: number;
+    }[];
 };
 
 /** Shape of a Laravel resource collection wrapping a paginator. */

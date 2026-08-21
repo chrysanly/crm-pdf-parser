@@ -1,29 +1,20 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
 import { CompanyForm } from '@/components/crm/company-form';
+import { ConfirmDestructiveDialog } from '@/components/crm/confirm-destructive-dialog';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import companies from '@/routes/companies';
 import type {
     Company,
     EnumOption,
     LogoPlacementValue,
     LogoSizeValue,
-    TemplateOption,
+    ResumeTemplateCard,
 } from '@/types/models';
 
 type Props = {
     company: Company;
-    templates: TemplateOption[];
+    templates: ResumeTemplateCard[];
     logoPlacements: EnumOption<LogoPlacementValue>[];
     logoSizes: EnumOption<LogoSizeValue>[];
 };
@@ -49,8 +40,8 @@ export default function CompanyEdit({
                         </p>
                     </div>
 
-                    <Dialog>
-                        <DialogTrigger asChild>
+                    <ConfirmDestructiveDialog
+                        trigger={
                             <Button
                                 variant="outline"
                                 className="text-destructive"
@@ -58,37 +49,13 @@ export default function CompanyEdit({
                                 <Trash2 className="size-4" aria-hidden />
                                 Archive company
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                {/* Destructive copy names the object (DESIGN §4). */}
-                                <DialogTitle>
-                                    Archive “{company.name}”?
-                                </DialogTitle>
-                                <DialogDescription>
-                                    It disappears from the company list and
-                                    stops accepting uploads. Existing resumes
-                                    and their ATS output stay available for
-                                    audit.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button variant="outline">Cancel</Button>
-                                </DialogClose>
-                                <Button
-                                    variant="destructive"
-                                    onClick={() =>
-                                        router.delete(
-                                            companies.destroy.url(company.slug),
-                                        )
-                                    }
-                                >
-                                    Archive company
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        }
+                        title={`Archive “${company.name}”?`}
+                        description="It disappears from the company list and stops accepting uploads. Existing resumes and their ATS output stay available for audit."
+                        confirmLabel="Archive company"
+                        pendingLabel="Archiving…"
+                        url={companies.destroy.url(company.slug)}
+                    />
                 </div>
 
                 <CompanyForm
